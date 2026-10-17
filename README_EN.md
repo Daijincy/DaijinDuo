@@ -34,7 +34,7 @@ Treat your phone's home-screen screenshot as a *breathing sheet of glass* — fl
 
 ```
 app/src/main/
-├── assets/solotilt/index.html      # WebView render core (WebGL2 fold shaders, line-by-line port)
+├── assets/daijinduo/index.html     # WebView render core (WebGL2 fold shaders, line-by-line port)
 ├── java/com/daijinduo/github/
 │   ├── MainActivity.kt             # Two-page skeleton (Duo/Show) + Liquid Glass bar
 │   ├── WebViewActivity.kt          # Full-screen page: HTML injection + JS bridge + native accelerometer

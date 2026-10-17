@@ -27,7 +27,7 @@ import java.io.ByteArrayOutputStream
 import kotlin.math.max
 
 /**
- * WebView 全屏效果页：内嵌 solotilt 折叠内核（WebGL2 单页），
+ * WebView 全屏效果页：内嵌折叠渲染内核（WebGL2 单页，复刻自 solotilt.com），
  * 不依赖原生 GLES 3.0 管线，兼容性更好。轻点 3 次退出。
  */
 class WebViewActivity : Activity(), SensorEventListener {
@@ -129,7 +129,7 @@ class WebViewActivity : Activity(), SensorEventListener {
         )
 
         // 直接用 HTML 字符串注入，绕开部分 ROM 对 file:///android_asset 加载的限制
-        val html = assets.open("solotilt/index.html").bufferedReader().use { it.readText() }
+        val html = assets.open("daijinduo/index.html").bufferedReader().use { it.readText() }
         webView.loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
     }
 

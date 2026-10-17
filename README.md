@@ -35,7 +35,7 @@
 
 ```
 app/src/main/
-├── assets/solotilt/index.html      # WebView 渲染内核（WebGL2 折叠 shader 逐行移植）
+├── assets/daijinduo/index.html     # WebView 渲染内核（WebGL2 折叠 shader 逐行移植）
 ├── java/com/daijinduo/github/
 │   ├── MainActivity.kt             # 双页骨架（Duo/Show）+ 液态玻璃底栏
 │   ├── WebViewActivity.kt          # 全屏效果页：HTML 注入 + JS 桥 + 原生加速度计
