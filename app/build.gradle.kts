@@ -47,6 +47,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     // 液态玻璃（iOS 26 Liquid Glass 风格）：背景模糊 + 玻璃透镜效果（Chris Banes / Haze）
-    implementation("dev.chrisbanes.haze:haze:1.7.3")
+    implementation("dev.chrisbanes.haze:haze:1.5.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
