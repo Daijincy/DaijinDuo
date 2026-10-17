@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "SoloTilt"
+rootProject.name = "DaijinDuo"
 include(":app")

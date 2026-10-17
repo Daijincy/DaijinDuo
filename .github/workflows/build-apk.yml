@@ -83,7 +83,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: solotilt-apk
+          name: daijinduo-apk
           path: app/build/outputs/apk/release/*.apk
           retention-days: 30
 

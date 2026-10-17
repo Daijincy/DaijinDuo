@@ -2,6 +2,10 @@
 
 > **利用 Android 陀螺仪实现 iPhone DUO 的偏转效果**
 
+<p align="center">
+  <strong>简体中文</strong> · <a href="README_EN.md"><strong>English</strong></a>
+</p>
+
 把手机桌面截图当作一块"会呼吸的玻璃"——屏幕朝上平放时图像平整，向任意方向倾斜时沿垂直铰链 90° 折叠，
 带 **透视缩短、景深模糊（Gaussian 金字塔）、铰链黑边渐变与玻璃反光**，完整复刻 [solotilt.com](https://solotilt.com/) 的 iPhone DUO 折叠效果。
 
