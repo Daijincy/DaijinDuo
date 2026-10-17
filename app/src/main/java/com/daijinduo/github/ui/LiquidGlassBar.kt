@@ -9,6 +9,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.LocalHazeStyle
 import dev.chrisbanes.haze.haze
 import kotlin.math.PI
 import kotlin.math.cos
@@ -68,7 +72,7 @@ fun LiquidGlassBar(
         ) {
             val glassStyle = HazeStyle(
                 backgroundColor = Color(0xFF171717),
-                tint = Color(0xFF000000).copy(alpha = 0.42f),
+                tint = HazeTint(Color(0xFF000000).copy(alpha = 0.42f)),
                 blurRadius = 24.dp,
                 noiseFactor = 0.06f
             )
@@ -84,12 +88,13 @@ fun LiquidGlassBar(
                 label = "glassPill"
             )
 
-            // 玻璃容器
+            // 玻璃容器（Haze 1.x：style 通过 LocalHazeStyle CompositionLocal 提供）
+            CompositionLocalProvider(LocalHazeStyle provides glassStyle) {
             Box(
                 Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(33.dp))
-                    .haze(hazeState, style = glassStyle)
+                    .haze(hazeState)
                     // 顶部高光描边（玻璃质感）
                     .drawWithCache {
                         onDrawBehind {
@@ -165,6 +170,7 @@ fun LiquidGlassBar(
                         onClick = { onSelect(1) }
                     )
                 }
+            }
             }
         }
     }
