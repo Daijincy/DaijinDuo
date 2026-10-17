@@ -9,13 +9,13 @@
 把手机桌面截图当作一块"会呼吸的玻璃"——屏幕朝上平放时图像平整，向任意方向倾斜时沿垂直铰链 90° 折叠，
 带 **透视缩短、景深模糊（Gaussian 金字塔）、铰链黑边渐变与玻璃反光**，完整复刻 [solotilt.com](https://solotilt.com/) 的 iPhone DUO 折叠效果。
 
-**v0.1ZS 正式版** · 包名 `com.daijinduo.github`
+**v0.1.1 正式版** · 包名 `com.daijinduo.github`
 
 ## ✨ 特性
 
 - **陀螺仪驱动**：原生加速度计经 JS 桥驱动 WebView 渲染内核，映射公式与网页端逐行一致（`sign=-1` + 指数平滑）
 - **WebView / WebGL2 内核**：渲染完全内嵌浏览器内核，避开原生 GLES 兼容性差异，几乎全设备可用
-- **复古简约 UI**：全字体思源宋体（Noto Serif CJK）· 黑底米白 · 白描边品牌 Logo
+- **复古简约 UI**：强制内置思源宋体（子集化打包）· 纯黑白 · 白描边品牌 Logo
 - **液态玻璃底栏**：iOS 26 Liquid Glass 风格悬浮 Tab 栏（Haze 真实背景模糊 · 顶部渐变高光 · 弹性液态选中 Pill）
 - **双页结构**：`Duo`（主要功能）/ `Show`（敬请期待）
 - **轻点 3 次退出** 全屏效果
@@ -55,13 +55,14 @@ ref/                                # solotilt.com 逆向分析产物
 
 - JDK 17 + Android SDK 35
 - `gradle :app:assembleRelease`（debug 签名，可直接安装）
-- 产物发布到 **GitHub Release**：`DaijinDuo-v0.1ZS.apk`
+- 产物发布到 **GitHub Release**：`DaijinDuo-v0.1.1.apk`
 
 ## 📦 版本记录
 
 | 版本 | 说明 |
 |---|---|
-| **v0.1ZS** | 首个正式版：复古简约 UI · 思源宋体 · 白描边 Logo · 液态玻璃底栏 · 双页结构（Duo/Show）· 包名 `com.daijinduo.github`（版本号重新开始） |
+| **v0.1.1** | 强制内置思源宋体（子集化打包，全设备渲染一致）· 主题色改纯黑白 · 包名 `com.daijinduo.github` |
+| v0.1ZS | 首个正式版：复古简约 UI · 思源宋体 · 白描边 Logo · 液态玻璃底栏 · 双页结构（Duo/Show）· 包名 `com.daijinduo.github`（版本号重新开始） |
 
 > 注：v1.0.0 ~ v1.1.2 为开发期迭代版本，已全部移除，正式版从 **v0.1ZS** 起算。
 

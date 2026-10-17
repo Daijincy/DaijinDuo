@@ -12,8 +12,8 @@ android {
         applicationId = "com.daijinduo.github"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "v0.1ZS"
+        versionCode = 2
+        versionName = "v0.1.1"
     }
 
     buildTypes {

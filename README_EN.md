@@ -8,13 +8,13 @@
 
 Treat your phone's home-screen screenshot as a *breathing sheet of glass* — flat when held level, folding 90° along a vertical hinge as you tilt in any direction, with **perspective foreshortening, depth-of-field blur (Gaussian pyramid), hinge dark-edge gradient and glass reflection** — a faithful recreation of the [solotilt.com](https://solotilt.com/) iPhone DUO fold effect.
 
-**v0.1ZS (first official release)** · Package `com.daijinduo.github`
+**v0.1.1 (official release)** · Package `com.daijinduo.github`
 
 ## ✨ Features
 
 - **Gyroscope driven**: native accelerometer feeds the WebView render core through a JS bridge; the mapping math matches the web version line-for-line (`sign=-1` + exponential smoothing)
 - **WebView / WebGL2 core**: rendering is fully embedded in the browser engine, avoiding native GLES compatibility issues — works on virtually any device
-- **Retro-minimal UI**: Noto Serif CJK (Source Han Serif) everywhere · dark ink & parchment palette · white-outlined brand logo
+- **Retro-minimal UI**: bundled Source Han Serif (subset) · pure black & white · white-outlined brand logo
 - **Liquid Glass bottom bar**: iOS 26 Liquid Glass style floating tab bar (real background blur via Haze · top gradient highlight · bouncy liquid selection pill)
 - **Two pages**: `Duo` (main feature) / `Show` (coming soon)
 - **Tap 3 times to exit** full-screen effect
@@ -54,13 +54,14 @@ Pushing to `main` triggers a build automatically (or run `workflow_dispatch` man
 
 - JDK 17 + Android SDK 35
 - `gradle :app:assembleRelease` (debug-signed, installable directly)
-- Artifact published to **GitHub Release**: `DaijinDuo-v0.1ZS.apk`
+- Artifact published to **GitHub Release**: `DaijinDuo-v0.1.1.apk`
 
 ## 📦 Version history
 
 | Version | Notes |
 |---|---|
-| **v0.1ZS** | First official release: retro-minimal UI · Noto Serif CJK · white-outlined logo · Liquid Glass bar · two pages (Duo/Show) · package `com.daijinduo.github` (versioning restarted) |
+| **v0.1.1** | Bundled Source Han Serif (subset, consistent rendering on all devices) · pure black & white theme · package `com.daijinduo.github` |
+| v0.1ZS | First official release: retro-minimal UI · Noto Serif CJK · white-outlined logo · Liquid Glass bar · two pages (Duo/Show) · package `com.daijinduo.github` (versioning restarted) |
 
 > Note: dev iterations v1.0.0 ~ v1.1.2 were removed; official versioning starts at **v0.1ZS**.
 

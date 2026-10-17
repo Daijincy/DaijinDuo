@@ -6,28 +6,34 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.daijinduo.github.R
 
-// ============ 复古简约 · 色板 ============
-// 品牌：黑底 · 白色描边双窗（DaijinDuo Logo）
+// ============ 黑白 · 色板 ============
+// 品牌：纯黑白 —— 黑底白字 · 白色描边双窗（DaijinDuo Logo）
 val AccentA = Color(0xFF000000)        // 纯黑（相册按钮底 · 主按钮）
-val AccentB = Color(0xFFC9A227)        // 做旧金（点缀 · 强调）
-val AccentC = Color(0xFF8A8577)        // 灰金（次级点缀）
-val BgDark = Color(0xFF070707)         // 近黑底
-val SurfaceDark = Color(0xFF121212)    // 卡片底
-val TextPrimary = Color(0xFFF0EAD9)    // 米白（正文）
-val TextSecondary = Color(0xFFA39D8B)  // 灰米（次级）
-val PaperWhite = Color(0xFFF5F1E6)     // 纸白（白底按钮文字）
+val AccentB = Color(0xFFFFFFFF)        // 纯白（强调 · 选中态）
+val AccentC = Color(0xFFBDBDBD)        // 浅灰（次级点缀）
+val BgDark = Color(0xFF000000)         // 纯黑底
+val SurfaceDark = Color(0xFF141414)    // 卡片底
+val TextPrimary = Color(0xFFFFFFFF)    // 纯白（正文）
+val TextSecondary = Color(0xFF9E9E9E)  // 灰（次级）
+val PaperWhite = Color(0xFFFFFFFF)     // 白（白底按钮文字）
 
-// ============ 思源宋体（Source Han Serif）============
-// Android 系统 serif = Noto Serif CJK（即思源宋体），免内置字体资源、零体积开销
-private val Serif = FontFamily.Serif
+// ============ 思源宋体（强制内置，非系统兜底）============
+// 子集化打包 Noto Serif SC（思源宋体）Regular/Bold 至 res/font，
+// 全局所有文本强制使用，任何设备渲染结果一致。
+private val Serif = FontFamily(
+    Font(R.font.notoserifsc_regular, FontWeight.Normal),
+    Font(R.font.notoserifsc_bold, FontWeight.Bold)
+)
 
 private val SoloColorScheme = darkColorScheme(
     primary = AccentB,
-    onPrimary = Color(0xFF111111),
+    onPrimary = AccentA,
     secondary = AccentC,
     tertiary = AccentB,
     background = BgDark,

@@ -149,7 +149,7 @@ private fun EntryButton(
     val shape = RoundedCornerShape(16.dp)
     val bg = if (dark) Color(0xFF0A0A0A) else PaperWhite
     val fg = if (dark) TextPrimary else Color(0xFF111111)
-    val sub = if (dark) TextSecondary else Color(0xFF4A463C)
+    val sub = if (dark) TextSecondary else Color(0xFF333333)
     val borderColor = if (dark) Color.White.copy(alpha = 0.75f) else Color.Transparent
 
     Column(
@@ -211,13 +211,13 @@ private fun FoldPreviewCard(modifier: Modifier = Modifier) {
             val top = 0f
             val corner = 8.dp.toPx()
 
-            // 右半（平展）—— 桌面模拟：暗蓝灰渐变
+            // 右半（平展）—— 桌面模拟：纯黑灰渐变
             drawRect(
                 brush = Brush.horizontalGradient(
                     colors = listOf(
-                        Color(0xFF232B3A),
-                        Color(0xFF181F2E),
-                        Color(0xFF121722)
+                        Color(0xFF1E1E1E),
+                        Color(0xFF141414),
+                        Color(0xFF0D0D0D)
                     )
                 ),
                 topLeft = Offset(hingeX, top),
@@ -253,8 +253,8 @@ private fun FoldPreviewCard(modifier: Modifier = Modifier) {
                 path = path,
                 brush = Brush.horizontalGradient(
                     colors = listOf(
-                        Color(0xFF0B0E16),
-                        Color(0xFF141D30),
+                        Color(0xFF0A0A0A),
+                        Color(0xFF151515),
                         AccentB.copy(alpha = 0.28f)
                     )
                 )
