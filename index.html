@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DaijinDuo — 把屏幕折成玻璃</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='5' y='5' width='54' height='54' rx='14' fill='none' stroke='%23fff' stroke-width='3.5'/%3E%3Crect x='13' y='15' width='19' height='34' rx='5.5' fill='none' stroke='%23fff' stroke-width='3'/%3E%3Crect x='32' y='15' width='19' height='34' rx='5.5' fill='none' stroke='%23fff' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://miaoda.feishu.cn">
+<link href="https://miaoda.feishu.cn/fonts/css2?family=Noto+Serif+SC:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#000; --bg-2:#000; --ink:#f5f7fa; --ink-dim:#9aa6b5;
+  --accent:#2997ff; --accent-2:#7ec8ff; --accent-soft:rgba(41,151,255,.14);
+  --line:rgba(255,255,255,.09); --line-2:rgba(255,255,255,.16);
+  --glass:rgba(0,0,0,.45); --glass-2:rgba(0,0,0,.62);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;
+  --sans:"Noto Serif SC","Source Han Serif SC","Songti SC","SimSun","Songti TC",serif;
+  --r-s:10px; --r-m:18px; --r-l:26px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);font-size:15px;background:var(--bg);color:var(--ink);line-height:1.7;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+::selection{background:rgba(41,151,255,.3)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+a{color:inherit;text-decoration:none}
+img{max-width:100%;display:block}
+
+/* grain overlay */
+body::after{content:"";position:fixed;inset:0;z-index:99;pointer-events:none;opacity:.05;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+
+/* ambient glow */
+.ambient{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.ambient::before,.ambient::after{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.ambient::before{width:640px;height:640px;left:8%;top:-180px;background:radial-gradient(circle,rgba(41,151,255,.14),transparent 70%)}
+.ambient::after{width:560px;height:560px;right:4%;top:24%;background:radial-gradient(circle,rgba(90,120,255,.08),transparent 70%)}
+
+.wrap{position:relative;z-index:1;max-width:1160px;margin:0 auto;padding:0 22px}
+
+/* ===== nav ===== */
+.nav{position:sticky;top:14px;z-index:50;margin-top:14px}
+.navbar{max-width:1160px;margin:0 auto;padding:8px 18px;display:flex;align-items:center;gap:14px;
+  background:rgba(0,0,0,.6);border:1px solid var(--line);border-radius:100px;
+  backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);box-shadow:0 8px 40px rgba(0,0,0,.5)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.2px}
+.brand svg{width:25px;height:25px;flex:none}
+.brand b{font-size:15px}
+.brand span{color:var(--ink-dim);font-weight:400;font-size:12px}
+.nav-links{display:none;gap:4px;margin-left:auto}
+.nav-links a{padding:7px 14px;border-radius:100px;font-size:13px;color:var(--ink-dim);transition:.2s}
+.nav-links a:hover{color:var(--ink);background:rgba(255,255,255,.06)}
+.nav-cta{margin-left:auto}
+.nav-cta a{display:inline-flex;align-items:center;gap:8px;padding:7px 15px;border-radius:100px;font-size:13px;font-weight:600;
+  background:var(--accent);color:#fff;transition:.2s;box-shadow:0 4px 20px rgba(41,151,255,.35)}
+.nav-cta a:hover{background:#1f86ea}
+@media(min-width:768px){.nav-links{display:flex}.nav-cta{margin-left:0}}
+
+/* ===== hero ===== */
+.hero{padding:64px 0 40px;display:grid;gap:40px;align-items:center}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;letter-spacing:2px;color:var(--accent-2);
+  font-family:var(--sans);font-weight:600;text-transform:uppercase;padding:6px 12px;border:1px solid var(--line-2);border-radius:100px;background:rgba(41,151,255,.06)}
+.eyebrow i{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+h1{font-size:clamp(28px,4.8vw,44px);line-height:1.2;font-weight:900;letter-spacing:-.4px;margin:18px 0 14px;text-wrap:balance}
+h1 em{font-style:normal;background:linear-gradient(120deg,#6db6ff,#cfe8ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{font-size:15px;color:var(--ink-dim);max-width:36em;font-weight:400}
+.cta-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:26px}
+.btn{display:inline-flex;align-items:center;gap:9px;padding:12px 20px;border-radius:14px;font-size:14px;font-weight:600;transition:.2s}
+.btn-primary{background:var(--accent);color:#fff;box-shadow:0 8px 30px rgba(41,151,255,.35)}
+.btn-primary:hover{background:#1f86ea;transform:translateY(-1px)}
+.btn-ghost{border:1px solid var(--line-2);color:var(--ink);background:rgba(255,255,255,.02)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent-2);background:var(--accent-soft)}
+.btn .ic{width:16px;height:16px;flex:none}
+.hero-meta{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:20px;font-size:12.5px;color:var(--ink-dim)}
+.hero-meta span{display:inline-flex;align-items:center;gap:6px}
+.hero-meta svg{width:14px;height:14px;color:var(--accent-2)}
+
+/* hero visual — actual effect video in a phone frame */
+.stage{display:flex;justify-content:center;padding:10px 0 6px}
+.phone{position:relative;width:min(300px,82vw);aspect-ratio:9/19.4;border-radius:42px;padding:10px;
+  background:#04060a;border:1px solid rgba(255,255,255,.16);
+  box-shadow:0 34px 90px rgba(0,0,0,.65), inset 0 0 0 1px rgba(255,255,255,.05);
+  transition:transform .25s}
+.phone:hover{transform:translateY(-4px)}
+.phone-video{width:100%;height:100%;object-fit:cover;border-radius:33px;display:block;background:#000}
+.phone-notch{position:absolute;top:18px;left:50%;transform:translateX(-50%);width:42%;height:22px;border-radius:16px;
+  background:rgba(0,0,0,.92);border:1px solid rgba(255,255,255,.12);z-index:2}
+.duo-cap{margin-top:18px;text-align:center;font-size:12px;color:var(--ink-dim);font-family:var(--mono);letter-spacing:1px}
+.duo-cap::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:8px;vertical-align:1px}
+
+@media(min-width:960px){
+  .hero{grid-template-columns:1.05fr .95fr;gap:20px;padding:84px 0 56px}
+  .stage{padding-top:8px}
+}
+
+/* ===== sections ===== */
+section{scroll-margin-top:96px;padding:58px 0}
+.sec-head{max-width:620px;margin-bottom:30px}
+.kicker{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--accent-2);font-family:var(--sans);font-weight:600;display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.kicker::before{content:"";width:26px;height:1px;background:var(--accent-2)}
+.sec-head h2{font-size:clamp(21px,2.8vw,29px);font-weight:700;letter-spacing:-.2px}
+.sec-head p{color:var(--ink-dim);margin-top:10px;font-size:14px}
+
+/* facts strip */
+.facts{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:26px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.fact{display:flex;align-items:center;gap:12px;font-size:13px;color:var(--ink-dim);padding:8px 4px}
+.fact b{color:var(--ink);font-weight:600}
+.fact .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;box-shadow:0 0 12px rgba(41,151,255,.8)}
+@media(min-width:900px){.facts{grid-template-columns:repeat(4,1fr)}}
+
+/* feature grid */
+.grid{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:720px){.grid{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:1000px){.grid{grid-template-columns:repeat(3,1fr)}}
+.card{position:relative;padding:22px 20px;border-radius:var(--r-m);background:var(--glass);border:1px solid var(--line);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);transition:.25s}
+.card:hover{border-color:var(--line-2);background:var(--glass-2);transform:translateY(-2px)}
+.card .ic{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;
+  background:var(--accent-soft);color:var(--accent-2);border:1px solid rgba(41,151,255,.2)}
+.card .ic svg{width:20px;height:20px}
+.card h3{font-size:15px;font-weight:700;margin-bottom:6px}
+.card p{font-size:13px;color:var(--ink-dim)}
+
+/* steps */
+.steps{display:grid;grid-template-columns:1fr;gap:14px;counter-reset:st}
+@media(min-width:760px){.steps{grid-template-columns:repeat(4,1fr)}}
+.step{position:relative;padding:20px 18px 20px 46px;border-radius:var(--r-m);background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(12px)}
+.step::before{counter-increment:st;content:"0" counter(st);position:absolute;left:14px;top:20px;font-family:var(--mono);font-weight:600;color:var(--accent);font-size:15px}
+.step h3{font-size:14.5px;font-weight:700;margin-bottom:5px}
+.step p{font-size:12.5px;color:var(--ink-dim)}
+
+/* download */
+.dl{display:grid;gap:14px;grid-template-columns:1fr}
+@media(min-width:860px){.dl{grid-template-columns:1.35fr 1fr}}
+.dl-card{padding:26px;border-radius:var(--r-l);background:linear-gradient(160deg,rgba(0,0,0,.72),rgba(0,0,0,.5));border:1px solid var(--line-2);backdrop-filter:blur(16px)}
+.dl-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.dl-badge{width:52px;height:52px;border-radius:14px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 8px 26px rgba(41,151,255,.4)}
+.dl-badge svg{width:26px;height:26px}
+.dl-title{font-size:18px;font-weight:800}
+.dl-title .ver{font-family:var(--mono);color:var(--accent-2);font-size:12.5px;margin-left:6px}
+.dl-spec{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:18px}
+.spec{padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid var(--line)}
+.spec dt{font-size:11px;color:var(--ink-dim);letter-spacing:.4px}
+.spec dd{font-size:13px;font-weight:600;margin-top:3px}
+.dl-actions{display:flex;flex-direction:column;gap:10px}
+.dl-actions .btn{justify-content:center;width:100%}
+.note{font-size:12px;color:var(--ink-dim);text-align:center;margin-top:10px}
+.note b{color:var(--accent-2);font-weight:600}
+.rt{padding:22px;border-radius:var(--r-l);background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(14px)}
+.rt h3{font-size:15px;font-weight:700;margin-bottom:14px}
+.rt table{width:100%;border-collapse:collapse;table-layout:fixed}
+.rt th{font-family:var(--mono);font-size:11px;text-align:left;color:var(--ink-dim);font-weight:500;padding:8px 6px;border-bottom:1px solid var(--line)}
+.rt th:nth-child(1){width:30%}
+.rt td{padding:9px 6px;font-size:13px;border-bottom:1px solid var(--line);vertical-align:top}
+.rt tr:last-child td{border-bottom:none}
+.rt td b{color:var(--ink);font-family:var(--mono);font-size:12px}
+.rt td span{color:var(--ink-dim)}
+
+/* footer */
+footer{padding:44px 0 40px;border-top:1px solid var(--line)}
+.foot{display:flex;flex-direction:column;gap:18px;align-items:center;text-align:center}
+.foot .brand{justify-content:center}
+.foot p{font-size:12.5px;color:var(--ink-dim);max-width:44em}
+.foot a{color:var(--accent-2)}
+.foot a:hover{text-decoration:underline}
+.foot .mono{font-family:var(--mono);color:var(--ink-dim)}
+
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *{animation:none!important}
+}
+</style>
+</head>
+<body>
+<div class="ambient" aria-hidden="true"></div>
+
+<!-- ===== nav ===== -->
+<header class="nav">
+  <nav class="navbar">
+    <a class="brand" href="#top" aria-label="DaijinDuo 首页">
+      <svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><rect x="5" y="5" width="54" height="54" rx="14" stroke="#fff" stroke-width="2.6"/><rect x="13" y="15" width="19" height="34" rx="5.5" stroke="#fff" stroke-width="2.4"/><rect x="32" y="15" width="19" height="34" rx="5.5" stroke="#fff" stroke-width="2.4"/></svg>
+      <b>DaijinDuo</b><span>Android</span>
+    </a>
+    <div class="nav-links">
+      <a href="#features">功能</a>
+      <a href="#how">效果</a>
+      <a href="#download">下载</a>
+      <a href="https://github.com/Daijincy/DaijinDuo" target="_blank" rel="noopener">GitHub</a>
+    </div>
+    <div class="nav-cta"><a href="#download">下载 v0.1ZS</a></div>
+  </nav>
+</header>
+
+<main id="top">
+<div class="wrap">
+  <!-- ===== hero ===== -->
+  <section class="hero">
+    <div>
+      <span class="eyebrow"><i></i>Android · 开源 · 复刻 iPhone DUO</span>
+      <h1>让手机屏幕，变成<em>一块会呼吸的玻璃。</em></h1>
+      <p class="sub">DaijinDuo 用陀螺仪驱动折叠效果：屏幕平放时平整如镜，向任意方向倾斜时沿垂直铰链 90° 折叠，带透视缩短、景深模糊与玻璃反光。</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="#download">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          下载 Android 版 · v0.1ZS
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/Daijincy/DaijinDuo" target="_blank" rel="noopener">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12 12 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg>
+          查看源码
+        </a>
+      </div>
+      <div class="hero-meta">
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12l4 4L19 6"/></svg>免 Root</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12l4 4L19 6"/></svg>纯本地渲染</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12l4 4L19 6"/></svg>数据不出设备</span>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="phone">
+        <video class="phone-video" src="assets/effect.mp4" autoplay muted loop playsinline preload="auto"></video>
+        <div class="phone-notch" aria-hidden="true"></div>
+      </div>
+    </div>
+  </section>
+  <p class="duo-cap" aria-hidden="true">实际效果 · 由陀螺仪驱动</p>
+
+  <!-- ===== facts ===== -->
+  <div class="facts">
+    <div class="fact"><span class="dot"></span>免费 <b>开源</b> 使用</div>
+    <div class="fact"><span class="dot"></span>无需 <b>Root</b> 权限</div>
+    <div class="fact"><span class="dot"></span>照片仅本地处理，<b>不上传</b></div>
+    <div class="fact"><span class="dot"></span>支持<b>陀螺仪</b>的 Android 设备</div>
+  </div>
+</div>
+
+<!-- ===== features ===== -->
+<section id="features">
+<div class="wrap">
+  <div class="sec-head">
+    <div class="kicker">Features</div>
+    <h2>复刻每一处质感细节</h2>
+    <p>从传感器映射到渲染管线，都和网页端的原版逻辑保持一致。</p>
+  </div>
+  <div class="grid">
+    <article class="card">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></div>
+      <h3>陀螺仪驱动折叠</h3>
+      <p>原生加速度计经 JS 桥驱动 WebView 渲染内核，映射公式与网页端逐行一致（sign=-1 + 指数平滑），倾斜时画面随之折叠。</p>
+    </article>
+    <article class="card">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></div>
+      <h3>真实景深模糊</h3>
+      <p>采用 Gaussian 金字塔实现折叠处的景深虚化，越靠近铰链模糊越重，边缘带透视缩短，观感贴近真实物理折页。</p>
+    </article>
+    <article class="card">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M20 20V10M4 6h16v4H4z"/><path d="M9 20v-6M15 20v-6"/></svg></div>
+      <h3>铰链黑边 + 玻璃反光</h3>
+      <p>铰链处叠加黑边渐变，面板带高光反射，把"折起来"的层次和玻璃质感一并还原。</p>
+    </article>
+    <article class="card">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg></div>
+      <h3>WebView / WebGL2 内核</h3>
+      <p>渲染完全内嵌浏览器内核，避开原生 GLES 兼容性差异，几乎全设备可用。</p>
+    </article>
+    <article class="card">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a5 5 0 0 1 5 5c0 2-1 3-1 3h-8s-1-1-1-3a5 5 0 0 1 5-5z"/><path d="M9 20h6M10 17h4"/></svg></div>
+      <h3>复古简约 UI</h3>
+      <p>全字体思源宋体（Noto Serif CJK）· 黑底米白 · 白描边品牌 Logo，打开即是成品观感。</p>
+    </article>
+    <article class="card">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 12l9 5 9-5"/><path d="M3 16l9 5 9-5"/></svg></div>
+      <h3>液态玻璃底栏</h3>
+      <p>iOS 26 Liquid Glass 风格悬浮 Tab 栏：Haze 真实背景模糊 · 顶部渐变高光 · 弹性液态选中 Pill。</p>
+    </article>
+  </div>
+</div>
+</section>
+
+<!-- ===== how ===== -->
+<section id="how">
+<div class="wrap">
+  <div class="sec-head">
+    <div class="kicker">How it works</div>
+    <h2>四步，从截图到折叠</h2>
+    <p>打开应用，选一张截图，剩下的交给陀螺仪。</p>
+  </div>
+  <div class="steps">
+    <div class="step"><h3>选择截图</h3><p>从相册挑选手机桌面截图，或通过系统相册（Photo Picker）直接选取。</p></div>
+    <div class="step"><h3>全屏沉浸</h3><p>点击图片进入全屏效果页，画面即刻铺满整块屏幕。</p></div>
+    <div class="step"><h3>倾斜折叠</h3><p>倾斜手机，折叠量随倾角从 0° 到 90° 连续变化，方向决定折向。</p></div>
+    <div class="step"><h3>轻点退出</h3><p>轻点屏幕 3 次（800ms 内），一步回到优雅主页。</p></div>
+  </div>
+</div>
+</section>
+
+<!-- ===== download ===== -->
+<section id="download">
+<div class="wrap">
+  <div class="sec-head">
+    <div class="kicker">Download</div>
+    <h2>为 Android 下载</h2>
+    <p>免 Root，安装即用。目前支持陀螺仪的主流 Android 设备均可体验。</p>
+  </div>
+
+  <div class="dl">
+    <div class="dl-card">
+      <div class="dl-top">
+        <div class="dl-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></div>
+        <div>
+          <div class="dl-title">DaijinDuo<span class="ver">v0.1ZS</span></div>
+          <div style="font-size:12.5px;color:var(--ink-dim)">Android · 安装包（.apk）· 包名 com.daijinduo.github</div>
+        </div>
+      </div>
+      <dl class="dl-spec">
+        <div class="spec"><dt>平台</dt><dd>Android</dd></div>
+        <div class="spec"><dt>传感器</dt><dd>需陀螺仪</dd></div>
+        <div class="spec"><dt>权限</dt><dd>免 Root</dd></div>
+        <div class="spec"><dt>文件大小</dt><dd>7.0 MB</dd></div>
+      </dl>
+      <div class="dl-actions">
+        <a class="btn btn-primary" href="https://github.com/Daijincy/DaijinDuo/releases/download/v0.1ZS/DaijinDuo-v0.1ZS.apk">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          下载 DaijinDuo-v0.1ZS.apk
+        </a>
+        <span class="note">由 GitHub Releases 提供直链 · 点击即开始下载安装包</span>
+      </div>
+    </div>
+
+    <div class="rt">
+      <h3>版本记录</h3>
+      <table>
+        <thead><tr><th>版本</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><b>v0.1ZS</b></td><td><span>首个正式版：复古简约 UI · 思源宋体 · 液态玻璃底栏 · 双页结构（Duo/Show），包名 com.daijinduo.github</span></td></tr>
+        </tbody>
+      </table>
+      <p class="note" style="text-align:left;margin-top:12px">注：v1.0.0 ~ v1.1.2 为开发期迭代版本，已移除；正式版从 v0.1ZS 起算。</p>
+    </div>
+  </div>
+</div>
+</section>
+</main>
+
+<footer>
+<div class="wrap foot">
+  <a class="brand" href="#top">
+    <svg width="25" height="25" viewBox="0 0 64 64" fill="none" aria-hidden="true"><rect x="5" y="5" width="54" height="54" rx="14" stroke="#fff" stroke-width="2.6"/><rect x="13" y="15" width="19" height="34" rx="5.5" stroke="#fff" stroke-width="2.4"/><rect x="32" y="15" width="19" height="34" rx="5.5" stroke="#fff" stroke-width="2.4"/></svg>
+    <b>DaijinDuo</b>
+  </a>
+  <p>用 Android 陀螺仪复刻 iPhone DUO 的折叠玻璃效果。核心代码开源，欢迎到 <a href="https://github.com/Daijincy/DaijinDuo" target="_blank" rel="noopener">GitHub</a> 查看、提建议或贡献。灵感来自 <a href="https://solotilt.com/" target="_blank" rel="noopener">solotilt.com</a>。</p>
+  <p class="mono">© 2026 DaijinDuo · MIT · v0.1ZS</p>
+</div>
+</footer>
+
+<script>
+(function(){
+  var v=document.querySelector('.phone-video');
+  if(!v)return;
+  // 尊重系统减弱动效：不自动播放，停留在首帧
+  if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+    v.removeAttribute('autoplay');
+    v.pause();
+  }
+  // 视口内才开始播放，滚动离屏暂停，节省流量
+  if('IntersectionObserver' in window){
+    var io=new IntersectionObserver(function(es){
+      es.forEach(function(e){
+        if(e.isIntersecting){ v.muted=true; var p=v.play(); if(p&&p.catch){p.catch(function(){})} }
+        else { v.pause(); }
+      });
+    },{threshold:.4});
+    io.observe(v);
+  }
+})();
+</script>
+</body>
+</html>
