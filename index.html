@@ -615,50 +615,127 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
     setLoadState('loading');
     setLoadPct(0);
     window.__dbg = 'fetching';
-    var url = 'assets/models/apple-iphone-17-pro.glb?v=' + Date.now();
-    function doFetch(tries){
-      return fetch(url, {cache: 'no-store'}).catch(function(e){
-        if(tries > 0) return doFetch(tries - 1);
-        throw e;
+    /* External live model: pass ?model=<https-url> to fetch the GLB directly
+       from an outside link in real time (cache-busted, no-store). Falls back
+       to the in-repo model when the param is absent. */
+    var modelParam = null;
+    try {
+      var q = new URLSearchParams(location.search).get('model');
+      if(q && /^https?:\/\//i.test(q)) modelParam = q;
+    } catch(e){}
+    var url = modelParam
+      ? modelParam + (modelParam.indexOf('?') >= 0 ? '&' : '?') + 'v=' + Date.now()
+      : 'assets/models/apple-iphone-17-pro.glb?v=' + Date.now();
+    /* multi-threaded downloader: 4 parallel Range requests over the in-repo
+       GLB (server must answer 206). No HEAD probe (that stalled progress on
+       some networks). Total size comes from the first chunk's Content-Range;
+       each chunk retries independently; if the server ignores Range (200
+       without Content-Range) it falls back to one streaming download. */
+    var CONC = 4;
+    var KNOWN_TOTAL = 25657660; /* in-repo GLB size, overridden by Content-Range */
+    var total = KNOWN_TOTAL;
+    var doneBytes = 0;
+    var received = [];
+    var rangeOK = true;
+
+    var safetyTimer = setTimeout(function(){
+      if(!window.__sceneReady) startFallback();
+    }, 90000);
+    function mountBuffer(buf){
+      clearTimeout(safetyTimer);
+      window.__dbg = 'parsing';
+      setLoadPct(94);
+      loader.parse(buf.buffer, '', function(gltf){
+        setLoadPct(100);
+        onModelLoaded(gltf);
+        if(loadEl){ loadEl.classList.add('is-done'); setTimeout(function(){ loadEl.style.display = 'none'; }, 420); }
+      }, function(e){
+        window.__dbg = 'parse-err ' + (e && e.message ? e.message : String(e));
+        loadFail('模型解析失败，请重试');
       });
     }
-    doFetch(2)
-      .then(function(r){
-        if(!r.ok) throw new Error('GLB HTTP ' + r.status);
-        var total = parseInt(r.headers.get('content-length') || '0', 10);
-        var reader = r.body.getReader();
-        var received = 0, chunks = [];
-        function pump(){
-          return reader.read().then(function(res){
-            if(res.done){
-              var buf = new Uint8Array(received);
-              var off = 0;
-              for(var i = 0; i < chunks.length; i++){ buf.set(chunks[i], off); off += chunks[i].length; }
-              window.__dbg = 'parsing';
-              setLoadPct(94);
-              loader.parse(buf.buffer, '', function(gltf){
-                setLoadPct(100);
-                onModelLoaded(gltf);
-                if(loadEl){ loadEl.classList.add('is-done'); setTimeout(function(){ loadEl.style.display = 'none'; }, 420); }
-              }, function(e){
-                window.__dbg = 'parse-err ' + (e && e.message ? e.message : String(e));
-                loadFail('模型解析失败，请重试');
-              });
-              return;
-            }
-            received += res.value.length;
-            chunks.push(res.value);
-            var p = total ? (received / total) : 0;
-            setLoadPct(Math.min(90, Math.round(p * 90)));
-            return pump();
-          });
+
+    function singleFallback(tries){
+      /* XHR single-stream download — more robust than fetch's stream parser on
+         plain 200 big files (avoids the 'Unexpected end of JSON input' the
+         fetch reader throws on some servers). */
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', url, true);
+      xhr.responseType = 'arraybuffer';
+      xhr.timeout = 120000;
+      xhr.onload = function(){
+        if(xhr.status >= 200 && xhr.status < 300 && xhr.response){
+          mountBuffer(new Uint8Array(xhr.response));
+        } else {
+          fail('HTTP ' + xhr.status);
         }
-        return pump();
-      })
-      .catch(function(e){
-        window.__dbg = 'fetch-err ' + (e && e.message ? e.message : String(e));
+      };
+      xhr.onerror = function(){ fail('network'); };
+      xhr.ontimeout = function(){ fail('timeout'); };
+      xhr.send();
+      function fail(why){
+        if(tries > 0){ setTimeout(function(){ singleFallback(tries - 1); }, 300); return; }
+        window.__dbg = 'fetch-err ' + why;
         loadFail('模型加载失败，请检查网络后重试');
-      });
+      }
+    }
+
+    var fallbackStarted = false;
+    function startFallback(){
+      if(fallbackStarted) return;
+      fallbackStarted = true;
+      singleFallback(2);
+    }
+    function chunkReq(start, end, idx, tries){
+      var ctrl = new AbortController();
+      var timer = setTimeout(function(){ ctrl.abort(); }, 60000);
+      return fetch(url, {cache: 'no-store', signal: ctrl.signal, headers: {'Range': 'bytes=' + start + '-' + end}})
+        .then(function(r){
+          if(r.status === 206){
+            var cr = r.headers.get('content-range') || '';
+            var m = cr.match(/\/(\d+)$/);
+            if(m && parseInt(m[1], 10) > 0) total = parseInt(m[1], 10);
+            return r.arrayBuffer().then(function(buf){ clearTimeout(timer); return buf; });
+          }
+          clearTimeout(timer);
+          if(r.status === 200 && !r.headers.get('content-range')){
+            var err = new Error('no-range'); err.code = 'no-range'; throw err;
+          }
+          var h = new Error('chunk HTTP ' + r.status); h.code = 'http'; throw h;
+        })
+        .then(function(buf){
+          received[idx] = buf;
+          doneBytes += buf.byteLength;
+          setLoadPct(Math.min(90, Math.round(doneBytes / total * 90)));
+        })
+        .catch(function(e){
+          clearTimeout(timer);
+          if(e && e.code === 'no-range'){ startFallback(); throw e; }
+          if(tries > 0) return chunkReq(start, end, idx, tries - 1);
+          throw e;
+        });
+    }
+
+    var size = Math.ceil(total / CONC);
+    var jobs = [];
+    for(var i = 0; i < CONC; i++){
+      var s = i * size;
+      if(s >= total) break;
+      var e = Math.min(total - 1, (i + 1) * size - 1);
+      jobs.push(chunkReq(s, e, i, 2));
+    }
+    Promise.all(jobs).then(function(){
+      if(!rangeOK) return;
+      var buf = new Uint8Array(total);
+      var off = 0;
+      for(var k = 0; k < received.length; k++){
+        if(received[k]){ buf.set(new Uint8Array(received[k]), off); off += received[k].byteLength; }
+      }
+      mountBuffer(buf);
+    }).catch(function(e){
+      window.__dbg = 'chunk-err ' + (e && e.message ? e.message : String(e));
+      singleFallback(2);
+    });
   }
   if(loadBtn) loadBtn.addEventListener('click', startLoad);
   /* render loop */
