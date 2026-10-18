@@ -99,6 +99,13 @@ h1 em{font-style:normal;background:linear-gradient(120deg,#6db6ff,#cfe8ff);-webk
 .phone3d-load.is-loading .phone3d-load-track,.phone3d-load.is-loading .phone3d-load-pct{display:block}
 .phone3d-load.is-error .phone3d-load-track i{background:linear-gradient(90deg,#ff5b5b,#ff8f8f)}
 .phone3d.no-webgl .phone3d-load{display:none}
+/* 点击屏幕后的演示视频弹层 */
+.demo-modal{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .28s ease;}
+.demo-modal.is-open{opacity:1;pointer-events:auto;}
+.demo-modal video{width:auto;max-width:min(92vw,460px);height:auto;max-height:88vh;border-radius:18px;background:#000;box-shadow:0 24px 80px rgba(0,0,0,.6);outline:none;}
+.demo-close{position:absolute;top:max(20px,env(safe-area-inset-top));right:24px;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.06);color:#f5f7fa;font-size:24px;line-height:1;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--sans);}
+.demo-close:hover{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.5);}
+.demo-modal video::-webkit-media-controls{font-family:var(--sans);}
 .duo-cap{margin-top:18px;text-align:center;font-size:12px;color:var(--ink-dim);font-family:var(--mono);letter-spacing:1px}
 .duo-cap::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:8px;vertical-align:1px}
 
@@ -232,17 +239,18 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
 
     <div class="stage">
       <div id="phone3d" class="phone3d">
-        <video id="phone-video" src="assets/effect.mp4" autoplay muted loop playsinline preload="auto" tabindex="-1" aria-hidden="true"></video>
+        <video id="phone-video" autoplay muted loop playsinline preload="auto" tabindex="-1" aria-hidden="true"></video>
         <canvas id="phone3d-canvas" aria-label="DaijinDuo 效果演示 · 3D 模型"></canvas>
         <div class="phone3d-load" id="phone3d-load" aria-hidden="true">
           <button type="button" class="phone3d-load-btn" id="phone3d-load-btn">加载完整资源</button>
           <div class="phone3d-load-track"><i id="phone3d-load-fill"></i></div>
           <span class="phone3d-load-pct" id="phone3d-load-pct"></span>
         </div>
-        <span class="phone3d-hint" aria-hidden="true">DRAG · 360°</span>
+        <span class="phone3d-hint" aria-hidden="true">DRAG · 360° · 点击屏幕播放</span>
       </div>
     </div>
   </section>
+
   <p class="duo-cap" aria-hidden="true">实际效果 · 由陀螺仪驱动</p>
 
   <!-- ===== facts ===== -->
@@ -363,6 +371,11 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
 </section>
 </main>
 
+  <div class="demo-modal" id="demo-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-label="DaijinDuo 演示视频">
+    <button type="button" class="demo-close" id="demo-close" aria-label="关闭演示视频">×</button>
+    <video id="demo-video" playsinline controls preload="none"></video>
+  </div>
+
 <footer>
 <div class="wrap foot">
   <a class="brand" href="#top">
@@ -383,8 +396,47 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
   'use strict';
   var container = document.getElementById('phone3d');
   var video = document.getElementById('phone-video');
+  /* pick a source the browser can actually decode (avoids aborting one
+     <source> on engines without H.264, e.g. some Linux/WebView builds) */
+  function pickDemoSource(){
+    if(video.canPlayType && video.canPlayType('video/mp4; codecs="avc1.42E01E"')){
+      return {src: 'assets/effect.mp4', type: 'video/mp4'};
+    }
+    return {src: 'assets/effect.webm', type: 'video/webm'};
+  }
+  (function(){
+    var s = pickDemoSource();
+    video.innerHTML = '<source src="' + s.src + '" type="' + s.type + '">';
+    video.load();
+  })();
   var canvas = document.getElementById('phone3d-canvas');
   if(!container || !video || !canvas) return;
+
+  /* ===== 外部资源实时下载配置 =====
+     把模型 / 视频的外部 HTTP 直链填到下面两个常量，网站即从外部源实时
+     下载；也可用网址参数临时指定：?model=<url>&video=<url>。
+     优先级：网址参数 > 下面常量 > 站内文件。
+     外链要求：响应头允许跨域（Access-Control-Allow-Origin: *）；
+     模型链接需支持 Range（Accept-Ranges: bytes，返回 206）。 */
+  var EXTERNAL = {
+    model: '',    // 例: 'https://your-cdn.com/apple-iphone-17-pro.glb'
+    screen: '',   // 例: 'https://your-cdn.com/screen.webp'（锁屏静态图）
+    video: ''     // 例: 'https://your-cdn.com/effect.mp4'（点击播放的演示视频）
+  };
+  function resolveAsset(key, inline){
+    try {
+      var q = new URLSearchParams(location.search).get(key);
+      if(q && /^https?:\/\//i.test(q)) return q;
+    } catch(e){}
+    if(EXTERNAL[key]) return EXTERNAL[key];
+    return inline;
+  }
+  function cacheBust(u){
+    return u + (u.indexOf('?') >= 0 ? '&' : '?') + 'v=' + Date.now();
+  }
+  var MODEL_URL = resolveAsset('model', 'assets/models/apple-iphone-17-pro.glb');
+  var SCREEN_URL = resolveAsset('screen', 'assets/screen.webp');
+  var VIDEO_URL = resolveAsset('video', 'assets/effect.mp4');
   if(!window.THREE || !window.WebGLRenderingContext){
     container.classList.add('no-webgl');
     return;
@@ -450,12 +502,17 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
   ground.receiveShadow = true;
   scene.add(ground);
 
-  /* --- video texture --- */
-  var videoTex = new THREE.VideoTexture(video);
-  videoTex.minFilter = THREE.LinearFilter;
-  videoTex.magFilter = THREE.LinearFilter;
-  videoTex.generateMipmaps = false;
-  videoTex.encoding = THREE.sRGBEncoding;
+  /* --- screen texture: the user's lock-screen artwork, served as-is --- */
+  var screenLoader = new THREE.TextureLoader();
+  screenLoader.setCrossOrigin(/^https?:\/\//i.test(SCREEN_URL) ? 'anonymous' : null);
+  var screenTex = screenLoader.load(SCREEN_URL);
+  screenTex.minFilter = THREE.LinearFilter;
+  screenTex.magFilter = THREE.LinearFilter;
+  screenTex.generateMipmaps = false;
+  screenTex.encoding = THREE.sRGBEncoding;
+  screenTex.anisotropy = 4;
+  screenTex.center.set(0.5, 0.5);
+  screenTex.rotation = Math.PI;   /* panel UVs are authored upside-down */
 
   /* --- model --- */
   var group = new THREE.Group();
@@ -482,54 +539,73 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
   function onModelLoaded(gltf){
     var model = gltf.scene;
 
-    /* The official model is a multi-material mesh: screen stack lives inside a
-       single Mesh with a material array. Find the 'OLED off' layer (visible
-       screen), replace it with the video-lit material, and make the covering
-       Glass / Glass tint layers transparent so it shows through. */
-    var screenMesh = null;
-    var screenMatIdx = -1;
+    /* Official 17 Pro screen stack: the 'OLED' lit face is a single curved
+       panel whose authored normals point into the body, so the front-camera
+       view renders the material's BackSide. A solid black plate is cloned
+       from the same geometry and pushed a few millimetres into the body so
+       the rear glass never shows the screen through; from the front it sits
+       behind the panel and is hidden. Covering Glass / Glass tint layers are
+       made transparent. */
+    var screenMeshes = [];
+    function makeScreenMaterial(){
+      return new THREE.MeshBasicMaterial({
+        map: screenTex,
+        side: THREE.BackSide,
+        toneMapped: false
+      });
+    }
+    var oledSlots = [];
     model.traverse(function(o){
       if(!o.isMesh) return;
       var mats = Array.isArray(o.material) ? o.material : [o.material];
       for(var i = 0; i < mats.length; i++){
         var m = mats[i];
         if(!m) continue;
-        if(m.name === 'Glass' || m.name === 'Glass tint'){
+        if(m.name === 'Glass'){
+          /* only the front cover glass is hidden so the screen shows;
+             'Glass tint' stays opaque (it hides the internals from the
+             rear and is not over the lit display area) */
           m.transparent = true;
           m.opacity = 0;
           m.depthWrite = true;
-        } else if(!screenMesh && (m.name === 'OLED off' || m.name === 'OLED')){
-          screenMesh = o;
-          screenMatIdx = Array.isArray(o.material) ? i : -1;
-          var vm = new THREE.MeshPhysicalMaterial({
-            emissive: 0x0d0f13,
-            emissiveMap: videoTex,
-            emissiveIntensity: 1.0,
-            roughness: 0.32,
-            metalness: 0,
-            clearcoat: 1.0,
-            clearcoatRoughness: 0.08
-          });
-          if(Array.isArray(o.material)){ o.material[i] = vm; }
-          else { o.material = vm; }
-          o.castShadow = false;
+        } else if(m.name === 'OLED' || m.name === 'OLED off'){
+          oledSlots.push({mesh: o, idx: Array.isArray(o.material) ? i : -1,
+                          textured: !!(m.map || m.emissiveMap)});
         }
       }
+    });
+    var litSlots = oledSlots.filter(function(s){ return s.textured; });
+    var targets = litSlots.length ? litSlots : oledSlots;
+    var screenMesh = null;
+    targets.forEach(function(s){
+      var sm = makeScreenMaterial();
+      if(s.idx >= 0){ s.mesh.material[s.idx] = sm; }
+      else { s.mesh.material = sm; }
+      s.mesh.castShadow = false;
+      screenMeshes.push(s.mesh);
+      if(!screenMesh) screenMesh = s.mesh;
     });
     if(!screenMesh){
       model.traverse(function(o){ if(o.isMesh && !screenMesh) screenMesh = o; });
     }
+    /* black plate inside the body, hiding the panel from the rear view */
     if(screenMesh){
-      /* screen lights up once the video is actually playing */
-      video.addEventListener('playing', function(){
-        var mats = Array.isArray(screenMesh.material) ? screenMesh.material : [screenMesh.material];
-        if(screenMatIdx >= 0 && mats[screenMatIdx] && mats[screenMatIdx].emissive){
-          mats[screenMatIdx].emissive.setHex(0xffffff);
-        } else if(mats[0] && mats[0].emissive){
-          mats[0].emissive.setHex(0xffffff);
-        }
+      var plate = screenMesh.clone();
+      plate.material = new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        side: THREE.DoubleSide,
+        toneMapped: false
       });
+      plate.castShadow = false;
+      plate.name = 'screen_back_plate';
+      plate.matrixAutoUpdate = false;
+      screenMesh.updateWorldMatrix(true, false);
+      var plateMatrix = new THREE.Matrix4().makeTranslation(0, 0, 0.006)
+        .multiply(screenMesh.matrixWorld);
+      plate.matrix = plateMatrix;
+      model.add(plate);
     }
+    window.__screenMeshes = screenMeshes;
     model.traverse(function(o){
       if(o.isMesh){
         o.castShadow = true;
@@ -583,6 +659,7 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
     ready = true;
     window.__sceneReady = true;
     container.classList.add('is-loaded');
+    try { video.pause(); } catch(e){}
     window.__phone3d = {camera: camera, controls: controls, model: model, group: group, screen: screenMesh};
     window.__dbg = 'loaded';
   }
@@ -615,17 +692,9 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
     setLoadState('loading');
     setLoadPct(0);
     window.__dbg = 'fetching';
-    /* External live model: pass ?model=<https-url> to fetch the GLB directly
-       from an outside link in real time (cache-busted, no-store). Falls back
-       to the in-repo model when the param is absent. */
-    var modelParam = null;
-    try {
-      var q = new URLSearchParams(location.search).get('model');
-      if(q && /^https?:\/\//i.test(q)) modelParam = q;
-    } catch(e){}
-    var url = modelParam
-      ? modelParam + (modelParam.indexOf('?') >= 0 ? '&' : '?') + 'v=' + Date.now()
-      : 'assets/models/apple-iphone-17-pro.glb?v=' + Date.now();
+    /* model: external link (EXTERNAL.model / ?model=) or in-repo GLB,
+       cache-busted for real-time fetching */
+    var url = cacheBust(MODEL_URL);
     /* multi-threaded downloader: 4 parallel Range requests over the in-repo
        GLB (server must answer 206). No HEAD probe (that stalled progress on
        some networks). Total size comes from the first chunk's Content-Range;
@@ -755,9 +824,11 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
     var io = new IntersectionObserver(function(es){
       es.forEach(function(e){
         if(e.isIntersecting){
-          video.muted = true;
-          var p = video.play();
-          if(p && p.catch) p.catch(function(){});
+          if(!ready){
+            video.muted = true;
+            var p = video.play();
+            if(p && p.catch) p.catch(function(){});
+          }
         } else {
           video.pause();
         }
@@ -765,6 +836,73 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
     }, {threshold: 0.35});
     io.observe(container);
   }
+
+  /* === 点击模型正面屏幕 → 播放演示视频 === */
+  var demoModal = document.getElementById('demo-modal');
+  var demoVideo = document.getElementById('demo-video');
+  var demoClose = document.getElementById('demo-close');
+  function openDemo(){
+    if(!window.__sceneReady) return;
+    if(controls) controls.autoRotate = false;
+    demoModal.classList.add('is-open');
+    demoModal.setAttribute('aria-hidden', 'false');
+    if(/^https?:\/\//i.test(VIDEO_URL)){
+      demoVideo.crossOrigin = 'anonymous';
+      demoVideo.src = cacheBust(VIDEO_URL);
+    } else {
+      demoVideo.removeAttribute('crossorigin');
+      var s = pickDemoSource();
+      demoVideo.innerHTML = '<source src="' + s.src + '" type="' + s.type + '">';
+      demoVideo.load();
+    }
+    var p = demoVideo.play();
+    if(p && p.catch) p.catch(function(){});
+  }
+  function closeDemo(){
+    demoModal.classList.remove('is-open');
+    demoModal.setAttribute('aria-hidden', 'true');
+    try { demoVideo.pause(); demoVideo.currentTime = 0; } catch(e){}
+    if(controls && !reduced){
+      controls.autoRotate = true;
+    }
+  }
+  if(demoClose) demoClose.addEventListener('click', closeDemo);
+  if(demoModal) demoModal.addEventListener('click', function(e){
+    if(e.target === demoModal) closeDemo();
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' || e.keyCode === 27) closeDemo();
+  });
+
+  /* 区分点击与拖拽：落点在屏幕面上才打开视频 */
+  var downXY = null, downBtn = 0;
+  function screenHit(clientX, clientY){
+    if(!window.__sceneReady) return false;
+    var rect = canvas.getBoundingClientRect();
+    var nx = ((clientX - rect.left) / rect.width) * 2 - 1;
+    var ny = -((clientY - rect.top) / rect.height) * 2 + 1;
+    var ray = new THREE.Raycaster();
+    ray.setFromCamera(new THREE.Vector2(nx, ny), camera);
+    var targets = window.__screenMeshes || (window.__phone3d && window.__phone3d.screen ? [window.__phone3d.screen] : []);
+    return ray.intersectObjects(targets, false).length > 0;
+  }
+  canvas.addEventListener('pointerdown', function(e){
+    downXY = {x: e.clientX, y: e.clientY};
+    downBtn = e.button;
+  });
+  canvas.addEventListener('pointerup', function(e){
+    if(!downXY) return;
+    var d = downXY;
+    downXY = null;
+    if(downBtn !== 0) return;
+    var dx = e.clientX - d.x, dy = e.clientY - d.y;
+    if(dx * dx + dy * dy > 36) return;   /* 拖拽旋转，不触发 */
+    if(screenHit(e.clientX, e.clientY)) openDemo();
+  });
+  canvas.addEventListener('pointermove', function(e){
+    if(!window.__sceneReady || e.buttons) return;
+    canvas.style.cursor = screenHit(e.clientX, e.clientY) ? 'pointer' : 'grab';
+  });
 })();
 </script>
 </body>
