@@ -692,16 +692,20 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
     setLoadState('loading');
     setLoadPct(0);
     window.__dbg = 'fetching';
-    /* model: external link (EXTERNAL.model / ?model=) or in-repo GLB,
-       cache-busted for real-time fetching */
-    var url = cacheBust(MODEL_URL);
-    /* multi-threaded downloader: 4 parallel Range requests over the in-repo
-       GLB (server must answer 206). No HEAD probe (that stalled progress on
-       some networks). Total size comes from the first chunk's Content-Range;
-       each chunk retries independently; if the server ignores Range (200
-       without Content-Range) it falls back to one streaming download. */
+    /* Accelerated single-stream source, same spirit as the APK short link:
+       fetch the GLB over an edge CDN that answers
+       `Access-Control-Allow-Origin: *` + Range 206 — raw.githubusercontent
+       (aka.doubaocdn.com short link returns 403 with an Origin header, so it
+       can't be used as a browser fetch source). External link
+       (?model=/EXTERNAL.model) wins if present; otherwise try the raw CDN
+       first, then the in-repo copy as fallback. Single request, real progress,
+       per-source retry. */
+    var GLB_ACCEL = 'https://raw.githubusercontent.com/Daijincy/DaijinDuo/gh-pages/assets/models/apple-iphone-17-pro.glb';
+    var SOURCES = [];
+    if(/^https?:\/\//i.test(MODEL_URL)) SOURCES.push(MODEL_URL);
+    SOURCES.push(GLB_ACCEL, MODEL_URL);
     var safetyTimer = setTimeout(function(){
-      if(!window.__sceneReady) singleFallback(2);
+      if(!window.__sceneReady) singleFallback(0, 2);
     }, 90000);
     function mountBuffer(buf){
       clearTimeout(safetyTimer);
@@ -717,12 +721,12 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
       });
     }
 
-    function singleFallback(tries){
-      /* Single-stream download, same accelerated-source style as the APK link
-         on the site: one request straight against the GH Pages CDN (which
-         answers `Access-Control-Allow-Origin: *` + Range 206). No parallel
-         chunking — that stalled on some networks. Progress comes from XHR
-         onprogress; failures retry up to `tries` times. */
+    function singleFallback(si, tries){
+      /* Single-stream download from SOURCES[si]. Progress comes from XHR
+         onprogress; on failure move to the next source, retrying the current
+         one up to `tries` times before giving up. */
+      if(!SOURCES[si]) return fail('no-source');
+      var url = cacheBust(SOURCES[si]);
       var xhr = new XMLHttpRequest();
       xhr.open('GET', url, true);
       xhr.responseType = 'arraybuffer';
@@ -743,12 +747,13 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
       xhr.ontimeout = function(){ fail('timeout'); };
       xhr.send();
       function fail(why){
-        if(tries > 0){ setTimeout(function(){ singleFallback(tries - 1); }, 300); return; }
+        if(si < SOURCES.length - 1){ setTimeout(function(){ singleFallback(si + 1, 2); }, 300); return; }
+        if(tries > 0){ setTimeout(function(){ singleFallback(si, tries - 1); }, 400); return; }
         window.__dbg = 'fetch-err ' + why;
         loadFail('模型加载失败，请检查网络后重试');
       }
     }
-    singleFallback(2);
+    singleFallback(0, 2);
   }
   if(loadBtn) loadBtn.addEventListener('click', startLoad);
   /* render loop */
