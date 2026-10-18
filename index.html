@@ -543,7 +543,6 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
     window.__dbg = 'loaded';
   }
 
-  /* fetch + parse: more robust than FileLoader on some CDN/hosts */
   function fetchWithRetry(url, retries, timeoutMs){
     return new Promise(function(resolve, reject){
       var attempt = 0;
@@ -562,8 +561,16 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
       tryFetch();
     });
   }
-  window.__dbg = 'fetching';
-  fetchWithRetry('assets/models/scene.glb', 3, 15000)
+  /* fetch + parse: wait for DOMContentLoaded so the connection is past
+     the navigation phase (some CDNs drop bodies of early same-tab requests),
+     then fetch with a cache-buster and retry-on-timeout */
+  function afterDomLoaded(fn){
+    if(document.readyState === 'interactive' || document.readyState === 'complete'){ fn(); }
+    else { document.addEventListener('DOMContentLoaded', fn); }
+  }
+  afterDomLoaded(function(){
+    window.__dbg = 'fetching';
+    fetchWithRetry('assets/models/scene.glb?v=' + Date.now(), 3, 15000)
     .then(function(r){
       if(!r.ok) throw new Error('GLB HTTP ' + r.status);
       return r.arrayBuffer();
@@ -581,6 +588,7 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
       window.__dbg = 'fetch-err ' + (e && e.message ? e.message : String(e));
       container.classList.add('no-webgl');
     });
+  });
   /* render loop */
   function loop(){
     if(!ready) return;
