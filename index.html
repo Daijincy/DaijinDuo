@@ -72,16 +72,19 @@ h1 em{font-style:normal;background:linear-gradient(120deg,#6db6ff,#cfe8ff);-webk
 .hero-meta span{display:inline-flex;align-items:center;gap:6px}
 .hero-meta svg{width:14px;height:14px;color:var(--accent-2)}
 
-/* hero visual — actual effect video in a phone frame */
+/* hero visual — iPhone 3D model with demo video on screen */
 .stage{display:flex;justify-content:center;padding:10px 0 6px}
-.phone{position:relative;width:min(300px,82vw);aspect-ratio:9/19.4;border-radius:42px;padding:10px;
-  background:#04060a;border:1px solid rgba(255,255,255,.16);
-  box-shadow:0 34px 90px rgba(0,0,0,.65), inset 0 0 0 1px rgba(255,255,255,.05);
-  transition:transform .25s}
-.phone:hover{transform:translateY(-4px)}
-.phone-video{width:100%;height:100%;object-fit:cover;border-radius:33px;display:block;background:#000}
-.phone-notch{position:absolute;top:18px;left:50%;transform:translateX(-50%);width:42%;height:22px;border-radius:16px;
-  background:rgba(0,0,0,.92);border:1px solid rgba(255,255,255,.12);z-index:2}
+.phone3d{position:relative;width:min(300px,82vw);aspect-ratio:9/19.4;border-radius:44px;overflow:hidden;
+  background:radial-gradient(120% 90% at 50% 18%,#0d1015 0%,#07090c 55%,#020304 100%);
+  box-shadow:0 34px 90px rgba(0,0,0,.65)}
+.phone3d video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.phone3d canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:pan-y}
+.phone3d.no-webgl canvas{display:none}
+.phone3d.no-webgl video{z-index:2}
+.phone3d-hint{position:absolute;left:50%;bottom:13px;transform:translateX(-50%);z-index:3;pointer-events:none;
+  font-size:11px;color:rgba(245,247,250,.5);font-family:var(--mono);letter-spacing:1.5px;white-space:nowrap;
+  text-shadow:0 1px 8px rgba(0,0,0,.8);transition:opacity 1.2s ease .4s}
+.phone3d.is-dragged .phone3d-hint{opacity:0}
 .duo-cap{margin-top:18px;text-align:center;font-size:12px;color:var(--ink-dim);font-family:var(--mono);letter-spacing:1px}
 .duo-cap::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:8px;vertical-align:1px}
 
@@ -214,9 +217,10 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
     </div>
 
     <div class="stage">
-      <div class="phone">
-        <video class="phone-video" src="assets/effect.mp4" autoplay muted loop playsinline preload="auto"></video>
-        <div class="phone-notch" aria-hidden="true"></div>
+      <div id="phone3d" class="phone3d">
+        <video id="phone-video" src="assets/effect.mp4" autoplay muted loop playsinline preload="auto" tabindex="-1" aria-hidden="true"></video>
+        <canvas id="phone3d-canvas" aria-label="DaijinDuo 效果演示 · 3D 模型"></canvas>
+        <span class="phone3d-hint" aria-hidden="true">DRAG · 360°</span>
       </div>
     </div>
   </section>
@@ -351,24 +355,220 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
 </div>
 </footer>
 
+<script src="assets/vendor/three.min.js"></script>
+<script src="assets/vendor/DRACOLoader.js"></script>
+<script src="assets/vendor/GLTFLoader.js"></script>
+<script src="assets/vendor/OrbitControls.js"></script>
 <script>
 (function(){
-  var v=document.querySelector('.phone-video');
-  if(!v)return;
-  // 尊重系统减弱动效：不自动播放，停留在首帧
-  if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){
-    v.removeAttribute('autoplay');
-    v.pause();
+  'use strict';
+  var container = document.getElementById('phone3d');
+  var video = document.getElementById('phone-video');
+  var canvas = document.getElementById('phone3d-canvas');
+  if(!container || !video || !canvas) return;
+  if(!window.THREE || !window.WebGLRenderingContext){
+    container.classList.add('no-webgl');
+    return;
   }
-  // 视口内才开始播放，滚动离屏暂停，节省流量
-  if('IntersectionObserver' in window){
-    var io=new IntersectionObserver(function(es){
-      es.forEach(function(e){
-        if(e.isIntersecting){ v.muted=true; var p=v.play(); if(p&&p.catch){p.catch(function(){})} }
-        else { v.pause(); }
+
+  var renderer;
+  try{
+    renderer = new THREE.WebGLRenderer({canvas:canvas, alpha:true, antialias:true, powerPreference:'high-performance'});
+  }catch(e){
+    container.classList.add('no-webgl');
+    return;
+  }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.12;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(35, 1, 0.01, 60);
+  camera.position.set(0, 0.35, 2.6);
+
+  /* --- studio environment: programmatic softboxes, no HDR file --- */
+  var pmrem = new THREE.PMREMGenerator(renderer);
+  function makeStudioEnv(){
+    var c = document.createElement('canvas'); c.width = 1024; c.height = 512;
+    var ctx = c.getContext('2d');
+    var g = ctx.createLinearGradient(0, 0, 0, 512);
+    g.addColorStop(0, '#4c5158'); g.addColorStop(0.22, '#2b2e33'); g.addColorStop(1, '#0b0c0e');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 1024, 512);
+    ctx.fillStyle = 'rgba(255,255,255,0.13)'; ctx.fillRect(0, 190, 150, 150);
+    ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(874, 160, 150, 190);
+    ctx.fillStyle = 'rgba(190,205,255,0.10)'; ctx.fillRect(437, 60, 150, 120);
+    var tex = new THREE.CanvasTexture(c);
+    tex.mapping = THREE.EquirectangularReflectionMapping;
+    return tex;
+  }
+  var envRT = pmrem.fromEquirectangular(makeStudioEnv());
+  scene.environment = envRT.texture;
+
+  /* --- lights: key / fill / rim --- */
+  var key = new THREE.DirectionalLight(0xffffff, 2.3);
+  key.position.set(2.6, 4.2, 3.4);
+  key.castShadow = true;
+  key.shadow.mapSize.set(1024, 1024);
+  key.shadow.camera.near = 0.5; key.shadow.camera.far = 12;
+  key.shadow.camera.left = -2; key.shadow.camera.right = 2;
+  key.shadow.camera.top = 3; key.shadow.camera.bottom = -3;
+  key.shadow.bias = -0.0006;
+  scene.add(key);
+  var fill = new THREE.DirectionalLight(0xc2d4ff, 0.6);
+  fill.position.set(-3.2, 0.8, -1.4);
+  scene.add(fill);
+  var rim = new THREE.DirectionalLight(0xffffff, 0.4);
+  rim.position.set(0, -2.2, -2.8);
+  scene.add(rim);
+
+  /* --- ground contact shadow --- */
+  var ground = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), new THREE.ShadowMaterial({opacity: 0.42}));
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -0.815;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  /* --- video texture --- */
+  var videoTex = new THREE.VideoTexture(video);
+  videoTex.minFilter = THREE.LinearFilter;
+  videoTex.magFilter = THREE.LinearFilter;
+  videoTex.generateMipmaps = false;
+  videoTex.encoding = THREE.sRGBEncoding;
+
+  /* --- model --- */
+  var group = new THREE.Group();
+  scene.add(group);
+  var controls = null;
+  var ready = false;
+  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function size(){
+    var w = container.clientWidth, h = container.clientHeight;
+    if(!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', size);
+  size();
+
+  var loader = new THREE.GLTFLoader();
+  var dracoLoader = new THREE.DRACOLoader();
+  dracoLoader.setDecoderPath('assets/vendor/draco/');
+  loader.setDRACOLoader(dracoLoader);
+  loader.load('assets/models/scene.glb', function(gltf){
+    var model = gltf.scene;
+
+    /* screen mesh: the pure-black material mesh */
+    var screen = null;
+    model.traverse(function(o){
+      if(o.isMesh && o.material && o.material.name === 'hUlRcbieVuIiOXG') screen = o;
+    });
+    if(!screen){
+      model.traverse(function(o){ if(o.isMesh && !screen) screen = o; });
+    }
+    if(screen){
+      screen.material = new THREE.MeshPhysicalMaterial({
+        emissive: 0x0d0f13,
+        emissiveMap: videoTex,
+        emissiveIntensity: 1.0,
+        roughness: 0.32,
+        metalness: 0,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.08
       });
-    },{threshold:.4});
-    io.observe(v);
+      screen.castShadow = false;
+      /* screen lights up once the video is actually playing */
+      video.addEventListener('playing', function(){
+        if(screen.material) screen.material.emissive.setHex(0xffffff);
+      });
+    }
+    model.traverse(function(o){
+      if(o.isMesh){
+        o.castShadow = true;
+        o.receiveShadow = false;
+        if(o.material && o.material.map) o.material.map.encoding = THREE.sRGBEncoding;
+      }
+    });
+
+    model.scale.setScalar(10);
+    model.rotation.y = Math.PI;   /* front face (screen) toward camera */
+    group.add(model);
+
+    /* stand the model on the contact plane */
+    var bb = new THREE.Box3().setFromObject(model);
+    var minY = bb.min.y;
+    group.position.y = -minY - 0.815;
+
+    /* frame the camera from the model height */
+    var height = bb.max.y - minY;
+    var dist = (height / 2) / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * 1.16;
+    camera.position.set(0, height * 0.16 + 0.18, dist);
+    camera.lookAt(0, height * 0.08, 0);
+
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, height * 0.08, 0);
+    controls.enableZoom = false;
+    controls.enablePan = false;
+    controls.minPolarAngle = Math.PI * 0.26;
+    controls.maxPolarAngle = Math.PI * 0.82;
+    controls.autoRotate = !reduced;
+    controls.autoRotateSpeed = 1.15;
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.update();
+
+    /* pause auto-rotate while dragging, resume 4s after */
+    var resumeTimer = null;
+    renderer.domElement.addEventListener('pointerdown', function(){
+      container.classList.add('is-dragged');
+      if(controls) controls.autoRotate = false;
+      clearTimeout(resumeTimer);
+    });
+    window.addEventListener('pointerup', function(){
+      if(!controls) return;
+      clearTimeout(resumeTimer);
+      resumeTimer = setTimeout(function(){
+        if(!reduced) controls.autoRotate = true;
+      }, 4000);
+    });
+
+    ready = true;
+    window.__sceneReady = true;
+    window.__phone3d = {camera: camera, controls: controls};
+  }, undefined, function(){
+    container.classList.add('no-webgl');
+  });
+
+  /* render loop */
+  function loop(){
+    if(!ready) return;
+    if(controls) controls.update();
+    renderer.render(scene, camera);
+  }
+  renderer.setAnimationLoop(loop);
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden) renderer.setAnimationLoop(null);
+    else renderer.setAnimationLoop(loop);
+  });
+
+  /* play video only while hero is in viewport */
+  if('IntersectionObserver' in window){
+    var io = new IntersectionObserver(function(es){
+      es.forEach(function(e){
+        if(e.isIntersecting){
+          video.muted = true;
+          var p = video.play();
+          if(p && p.catch) p.catch(function(){});
+        } else {
+          video.pause();
+        }
+      });
+    }, {threshold: 0.35});
+    io.observe(container);
   }
 })();
 </script>
