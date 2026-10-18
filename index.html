@@ -11,7 +11,7 @@
   --accent:#2997ff; --accent-2:#7ec8ff; --accent-soft:rgba(41,151,255,.14);
   --line:rgba(255,255,255,.09); --line-2:rgba(255,255,255,.16);
   --glass:rgba(0,0,0,.45); --glass-2:rgba(0,0,0,.62);
-  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;
+  --mono:"Noto Serif CJK SC","Source Han Serif SC","Noto Serif SC","Songti SC","SimSun",serif;
   --sans:"Noto Serif CJK SC","Source Han Serif SC","Noto Serif SC","Songti SC","SimSun","Songti TC",serif;
   --r-s:10px; --r-m:18px; --r-l:26px;
 }
@@ -83,8 +83,22 @@ h1 em{font-style:normal;background:linear-gradient(120deg,#6db6ff,#cfe8ff);-webk
 .phone3d.no-webgl video{z-index:2;opacity:1}
 .phone3d-hint{position:absolute;left:50%;bottom:13px;transform:translateX(-50%);z-index:3;pointer-events:none;
   font-size:11px;color:rgba(245,247,250,.5);font-family:var(--mono);letter-spacing:1.5px;white-space:nowrap;
-  text-shadow:0 1px 8px rgba(0,0,0,.8);transition:opacity 1.2s ease .4s}
+  text-shadow:0 1px 8px rgba(0,0,0,.8);transition:opacity 1.2s ease .4s;opacity:0}
+.phone3d.is-loaded .phone3d-hint{opacity:1}
 .phone3d.is-dragged .phone3d-hint{opacity:0}
+/* lazy-load gate: button + progress bar until user opts in */
+.phone3d-load{position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+  background:radial-gradient(120% 90% at 50% 18%,rgba(13,16,21,.82),rgba(2,3,4,.9));border-radius:44px}
+.phone3d-load-btn{display:inline-flex;align-items:center;gap:8px;padding:11px 20px;border-radius:14px;border:1px solid var(--line-2);
+  background:rgba(255,255,255,.04);color:var(--ink);font-family:var(--sans);font-size:13.5px;letter-spacing:1px;cursor:pointer;transition:.25s}
+.phone3d-load-btn:hover{border-color:var(--accent);color:var(--accent-2);background:var(--accent-soft);transform:translateY(-1px)}
+.phone3d-load-track{width:128px;height:2px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden;display:none}
+.phone3d-load-track i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .18s ease}
+.phone3d-load-pct{font-size:11.5px;color:var(--ink-dim);font-family:var(--mono);letter-spacing:1px;min-height:1em;display:none}
+.phone3d-load.is-loading .phone3d-load-btn{display:none}
+.phone3d-load.is-loading .phone3d-load-track,.phone3d-load.is-loading .phone3d-load-pct{display:block}
+.phone3d-load.is-error .phone3d-load-track i{background:linear-gradient(90deg,#ff5b5b,#ff8f8f)}
+.phone3d.no-webgl .phone3d-load{display:none}
 .duo-cap{margin-top:18px;text-align:center;font-size:12px;color:var(--ink-dim);font-family:var(--mono);letter-spacing:1px}
 .duo-cap::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:8px;vertical-align:1px}
 
@@ -220,6 +234,11 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
       <div id="phone3d" class="phone3d">
         <video id="phone-video" src="assets/effect.mp4" autoplay muted loop playsinline preload="auto" tabindex="-1" aria-hidden="true"></video>
         <canvas id="phone3d-canvas" aria-label="DaijinDuo 效果演示 · 3D 模型"></canvas>
+        <div class="phone3d-load" id="phone3d-load" aria-hidden="true">
+          <button type="button" class="phone3d-load-btn" id="phone3d-load-btn">加载完整资源</button>
+          <div class="phone3d-load-track"><i id="phone3d-load-fill"></i></div>
+          <span class="phone3d-load-pct" id="phone3d-load-pct"></span>
+        </div>
         <span class="phone3d-hint" aria-hidden="true">DRAG · 360°</span>
       </div>
     </div>
@@ -563,54 +582,85 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
 
     ready = true;
     window.__sceneReady = true;
+    container.classList.add('is-loaded');
     window.__phone3d = {camera: camera, controls: controls, model: model, group: group, screen: screenMesh};
     window.__dbg = 'loaded';
   }
 
-  /* fetch + parse the model (original quality GLB, network loaded with retry) */
-  function fetchWithRetry(url, retries, timeoutMs){
-    return new Promise(function(resolve, reject){
-      var attempt = 0;
-      function tryFetch(){
-        var ctrl = new AbortController();
-        var timer = setTimeout(function(){ ctrl.abort(); }, timeoutMs);
-        fetch(url, {signal: ctrl.signal, cache: 'no-store'})
-          .then(function(r){ clearTimeout(timer); resolve(r); })
-          .catch(function(e){
-            clearTimeout(timer);
-            attempt++;
-            if(attempt < retries){ setTimeout(tryFetch, 300); }
-            else { reject(e); }
-          });
-      }
-      tryFetch();
-    });
+  /* lazy full-resource load: user clicks the button, we stream the 25MB
+     original GLB with a progress bar, then parse and mount. */
+  var loadEl = document.getElementById('phone3d-load');
+  var loadBtn = document.getElementById('phone3d-load-btn');
+  var loadFill = document.getElementById('phone3d-load-fill');
+  var loadPct = document.getElementById('phone3d-load-pct');
+  function setLoadPct(p){
+    if(loadFill) loadFill.style.width = p + '%';
+    if(loadPct) loadPct.textContent = Math.round(p) + '%';
   }
-  function afterDomLoaded(fn){
-    if(document.readyState === 'interactive' || document.readyState === 'complete'){ fn(); }
-    else { document.addEventListener('DOMContentLoaded', fn); }
+  function setLoadState(s){
+    if(!loadEl) return;
+    loadEl.classList.toggle('is-loading', s === 'loading');
+    loadEl.classList.toggle('is-error', s === 'error');
   }
-  afterDomLoaded(function(){
+  function loadFail(msg){
+    window.__dbg = 'fail';
+    setLoadState('error');
+    if(loadPct) loadPct.textContent = msg;
+    if(loadBtn){ loadBtn.textContent = '重新加载'; loadBtn.style.display = 'inline-flex'; }
+    startLoad.started = false;
+  }
+  function startLoad(){
+    if(startLoad.started) return;
+    startLoad.started = true;
+    setLoadState('loading');
+    setLoadPct(0);
     window.__dbg = 'fetching';
-    fetchWithRetry('assets/models/apple-iphone-17-pro.glb?v=' + Date.now(), 2, 45000)
+    var url = 'assets/models/apple-iphone-17-pro.glb?v=' + Date.now();
+    function doFetch(tries){
+      return fetch(url, {cache: 'no-store'}).catch(function(e){
+        if(tries > 0) return doFetch(tries - 1);
+        throw e;
+      });
+    }
+    doFetch(2)
       .then(function(r){
         if(!r.ok) throw new Error('GLB HTTP ' + r.status);
-        return r.arrayBuffer();
-      })
-      .then(function(buf){
-        window.__dbg = 'parsing';
-        loader.parse(buf, '', function(gltf){
-          onModelLoaded(gltf);
-        }, function(e){
-          window.__dbg = 'parse-err ' + (e && e.message ? e.message : String(e));
-          container.classList.add('no-webgl');
-        });
+        var total = parseInt(r.headers.get('content-length') || '0', 10);
+        var reader = r.body.getReader();
+        var received = 0, chunks = [];
+        function pump(){
+          return reader.read().then(function(res){
+            if(res.done){
+              var buf = new Uint8Array(received);
+              var off = 0;
+              for(var i = 0; i < chunks.length; i++){ buf.set(chunks[i], off); off += chunks[i].length; }
+              window.__dbg = 'parsing';
+              setLoadPct(94);
+              loader.parse(buf.buffer, '', function(gltf){
+                setLoadPct(100);
+                onModelLoaded(gltf);
+                if(loadEl){ loadEl.classList.add('is-done'); setTimeout(function(){ loadEl.style.display = 'none'; }, 420); }
+              }, function(e){
+                window.__dbg = 'parse-err ' + (e && e.message ? e.message : String(e));
+                loadFail('模型解析失败，请重试');
+              });
+              return;
+            }
+            received += res.value.length;
+            chunks.push(res.value);
+            var p = total ? (received / total) : 0;
+            setLoadPct(Math.min(90, Math.round(p * 90)));
+            return pump();
+          });
+        }
+        return pump();
       })
       .catch(function(e){
         window.__dbg = 'fetch-err ' + (e && e.message ? e.message : String(e));
-        container.classList.add('no-webgl');
+        loadFail('模型加载失败，请检查网络后重试');
       });
-  });
+  }
+  if(loadBtn) loadBtn.addEventListener('click', startLoad);
   /* render loop */
   function loop(){
     if(!ready) return;
