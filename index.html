@@ -700,15 +700,8 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
        some networks). Total size comes from the first chunk's Content-Range;
        each chunk retries independently; if the server ignores Range (200
        without Content-Range) it falls back to one streaming download. */
-    var CONC = 4;
-    var KNOWN_TOTAL = 25657660; /* in-repo GLB size, overridden by Content-Range */
-    var total = KNOWN_TOTAL;
-    var doneBytes = 0;
-    var received = [];
-    var rangeOK = true;
-
     var safetyTimer = setTimeout(function(){
-      if(!window.__sceneReady) startFallback();
+      if(!window.__sceneReady) singleFallback(2);
     }, 90000);
     function mountBuffer(buf){
       clearTimeout(safetyTimer);
@@ -725,13 +718,20 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
     }
 
     function singleFallback(tries){
-      /* XHR single-stream download — more robust than fetch's stream parser on
-         plain 200 big files (avoids the 'Unexpected end of JSON input' the
-         fetch reader throws on some servers). */
+      /* Single-stream download, same accelerated-source style as the APK link
+         on the site: one request straight against the GH Pages CDN (which
+         answers `Access-Control-Allow-Origin: *` + Range 206). No parallel
+         chunking — that stalled on some networks. Progress comes from XHR
+         onprogress; failures retry up to `tries` times. */
       var xhr = new XMLHttpRequest();
       xhr.open('GET', url, true);
       xhr.responseType = 'arraybuffer';
-      xhr.timeout = 120000;
+      xhr.timeout = 150000;
+      xhr.onprogress = function(ev){
+        if(ev.lengthComputable){
+          setLoadPct(Math.min(90, Math.round(ev.loaded / ev.total * 90)));
+        }
+      };
       xhr.onload = function(){
         if(xhr.status >= 200 && xhr.status < 300 && xhr.response){
           mountBuffer(new Uint8Array(xhr.response));
@@ -748,63 +748,7 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
         loadFail('模型加载失败，请检查网络后重试');
       }
     }
-
-    var fallbackStarted = false;
-    function startFallback(){
-      if(fallbackStarted) return;
-      fallbackStarted = true;
-      singleFallback(2);
-    }
-    function chunkReq(start, end, idx, tries){
-      var ctrl = new AbortController();
-      var timer = setTimeout(function(){ ctrl.abort(); }, 60000);
-      return fetch(url, {cache: 'no-store', signal: ctrl.signal, headers: {'Range': 'bytes=' + start + '-' + end}})
-        .then(function(r){
-          if(r.status === 206){
-            var cr = r.headers.get('content-range') || '';
-            var m = cr.match(/\/(\d+)$/);
-            if(m && parseInt(m[1], 10) > 0) total = parseInt(m[1], 10);
-            return r.arrayBuffer().then(function(buf){ clearTimeout(timer); return buf; });
-          }
-          clearTimeout(timer);
-          if(r.status === 200 && !r.headers.get('content-range')){
-            var err = new Error('no-range'); err.code = 'no-range'; throw err;
-          }
-          var h = new Error('chunk HTTP ' + r.status); h.code = 'http'; throw h;
-        })
-        .then(function(buf){
-          received[idx] = buf;
-          doneBytes += buf.byteLength;
-          setLoadPct(Math.min(90, Math.round(doneBytes / total * 90)));
-        })
-        .catch(function(e){
-          clearTimeout(timer);
-          if(e && e.code === 'no-range'){ startFallback(); throw e; }
-          if(tries > 0) return chunkReq(start, end, idx, tries - 1);
-          throw e;
-        });
-    }
-
-    var size = Math.ceil(total / CONC);
-    var jobs = [];
-    for(var i = 0; i < CONC; i++){
-      var s = i * size;
-      if(s >= total) break;
-      var e = Math.min(total - 1, (i + 1) * size - 1);
-      jobs.push(chunkReq(s, e, i, 2));
-    }
-    Promise.all(jobs).then(function(){
-      if(!rangeOK) return;
-      var buf = new Uint8Array(total);
-      var off = 0;
-      for(var k = 0; k < received.length; k++){
-        if(received[k]){ buf.set(new Uint8Array(received[k]), off); off += received[k].byteLength; }
-      }
-      mountBuffer(buf);
-    }).catch(function(e){
-      window.__dbg = 'chunk-err ' + (e && e.message ? e.message : String(e));
-      singleFallback(2);
-    });
+    singleFallback(2);
   }
   if(loadBtn) loadBtn.addEventListener('click', startLoad);
   /* render loop */
