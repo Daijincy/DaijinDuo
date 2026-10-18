@@ -693,17 +693,19 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
     setLoadPct(0);
     window.__dbg = 'fetching';
     /* Accelerated single-stream source, same spirit as the APK short link:
-       fetch the GLB over an edge CDN that answers
-       `Access-Control-Allow-Origin: *` + Range 206 — raw.githubusercontent
-       (aka.doubaocdn.com short link returns 403 with an Origin header, so it
-       can't be used as a browser fetch source). External link
-       (?model=/EXTERNAL.model) wins if present; otherwise try the raw CDN
-       first, then the in-repo copy as fallback. Single request, real progress,
-       per-source retry. */
-    var GLB_ACCEL = 'https://raw.githubusercontent.com/Daijincy/DaijinDuo/gh-pages/assets/models/apple-iphone-17-pro.glb';
+       fetch the GLB over a CDN that answers `Access-Control-Allow-Origin: *`
+       + Range 206 — a Volcengine byteimg signed URL (fast in CN, verified
+       CORS *) that .github/workflows/refresh-glb.yml renews every 5 days.
+       (aka.doubaocdn.com short link itself returns 403 with an Origin header,
+       so it can't be a browser fetch source.) External link
+       (?model=/EXTERNAL.model) wins if present; otherwise try byteimg, then
+       raw.githubusercontent, then the in-repo copy as fallback. Single request,
+       real progress, per-source retry. */
+    var GLB_ACCEL = 'https://p3-flow-sign.byteimg.com/tos-cn-i-ik7evvg4ik/rc/pc/super_tool/27cadb32edbe4209bcb6c4e0bad5e5ca.glb~tplv-a9rns2rl98-image.image?lk3s=8e244e95&rcl=202610181704434A3E3DD5F0351C4E8704&rrcfp=935dee89&x-expires=1792919127&x-signature=wh0vtNqtdJwqblpyL4tW8kAdRVw%3D';
+    var GLB_ACCEL2 = 'https://raw.githubusercontent.com/Daijincy/DaijinDuo/gh-pages/assets/models/apple-iphone-17-pro.glb';
     var SOURCES = [];
     if(/^https?:\/\//i.test(MODEL_URL)) SOURCES.push(MODEL_URL);
-    SOURCES.push(GLB_ACCEL, MODEL_URL);
+    SOURCES.push(GLB_ACCEL, GLB_ACCEL2, MODEL_URL);
     var safetyTimer = setTimeout(function(){
       if(!window.__sceneReady) singleFallback(0, 2);
     }, 90000);
