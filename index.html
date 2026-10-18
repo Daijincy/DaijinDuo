@@ -77,10 +77,10 @@ h1 em{font-style:normal;background:linear-gradient(120deg,#6db6ff,#cfe8ff);-webk
 .phone3d{position:relative;width:min(300px,82vw);aspect-ratio:9/19.4;border-radius:44px;overflow:hidden;
   background:radial-gradient(120% 90% at 50% 18%,#0d1015 0%,#07090c 55%,#020304 100%);
   box-shadow:0 34px 90px rgba(0,0,0,.65)}
-.phone3d video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.phone3d video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;opacity:0;pointer-events:none}
 .phone3d canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:pan-y}
 .phone3d.no-webgl canvas{display:none}
-.phone3d.no-webgl video{z-index:2}
+.phone3d.no-webgl video{z-index:2;opacity:1}
 .phone3d-hint{position:absolute;left:50%;bottom:13px;transform:translateX(-50%);z-index:3;pointer-events:none;
   font-size:11px;color:rgba(245,247,250,.5);font-family:var(--mono);letter-spacing:1.5px;white-space:nowrap;
   text-shadow:0 1px 8px rgba(0,0,0,.8);transition:opacity 1.2s ease .4s}
