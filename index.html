@@ -603,11 +603,40 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
     loadEl.classList.toggle('is-error', s === 'error');
   }
   function loadFail(msg){
-    window.__dbg = 'fail';
     setLoadState('error');
     if(loadPct) loadPct.textContent = msg;
     if(loadBtn){ loadBtn.textContent = '重新加载'; loadBtn.style.display = 'inline-flex'; }
     startLoad.started = false;
+  }
+  /* Faster loading without touching the model/textures:
+     1) Range requests split the 25MB GLB into 4 parallel streams (GitHub Pages
+        serves 206 ranges) — much better throughput on throttled single connections;
+     2) fixed version query + force-cache — repeat visits hit the browser cache;
+     3) any chunk failure falls back to one streaming download of the whole file. */
+  var GLB_TOTAL = 25657660; /* known size, used if HEAD fails */
+  function mountBuffer(buf){
+    window.__dbg = 'parsing';
+    setLoadPct(94);
+    loader.parse(buf.buffer, '', function(gltf){
+      setLoadPct(100);
+      onModelLoaded(gltf);
+      if(loadEl){ loadEl.classList.add('is-done'); setTimeout(function(){ loadEl.style.display = 'none'; }, 420); }
+    }, function(e){
+      window.__dbg = 'parse-err ' + (e && e.message ? e.message : String(e));
+      loadFail('模型解析失败，请重试');
+    });
+  }
+  function singleFetch(url, tries){
+    return fetch(url, {cache: 'force-cache'}).then(function(r){
+      if(!r.ok) throw new Error('GLB HTTP ' + r.status);
+      return r.arrayBuffer();
+    }).then(function(buf){
+      mountBuffer(buf);
+    }).catch(function(e){
+      if(tries > 0) return singleFetch(url, tries - 1);
+      window.__dbg = 'fetch-err ' + (e && e.message ? e.message : String(e));
+      loadFail('模型加载失败，请检查网络后重试');
+    });
   }
   function startLoad(){
     if(startLoad.started) return;
@@ -615,49 +644,50 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
     setLoadState('loading');
     setLoadPct(0);
     window.__dbg = 'fetching';
-    var url = 'assets/models/apple-iphone-17-pro.glb?v=' + Date.now();
-    function doFetch(tries){
-      return fetch(url, {cache: 'no-store'}).catch(function(e){
-        if(tries > 0) return doFetch(tries - 1);
-        throw e;
-      });
-    }
-    doFetch(2)
+    var url = 'assets/models/apple-iphone-17-pro.glb?v=2';
+    var CONC = 4;
+    fetch(url, {cache: 'force-cache', method: 'HEAD'})
       .then(function(r){
-        if(!r.ok) throw new Error('GLB HTTP ' + r.status);
-        var total = parseInt(r.headers.get('content-length') || '0', 10);
-        var reader = r.body.getReader();
-        var received = 0, chunks = [];
-        function pump(){
-          return reader.read().then(function(res){
-            if(res.done){
-              var buf = new Uint8Array(received);
-              var off = 0;
-              for(var i = 0; i < chunks.length; i++){ buf.set(chunks[i], off); off += chunks[i].length; }
-              window.__dbg = 'parsing';
-              setLoadPct(94);
-              loader.parse(buf.buffer, '', function(gltf){
-                setLoadPct(100);
-                onModelLoaded(gltf);
-                if(loadEl){ loadEl.classList.add('is-done'); setTimeout(function(){ loadEl.style.display = 'none'; }, 420); }
-              }, function(e){
-                window.__dbg = 'parse-err ' + (e && e.message ? e.message : String(e));
-                loadFail('模型解析失败，请重试');
-              });
-              return;
-            }
-            received += res.value.length;
-            chunks.push(res.value);
-            var p = total ? (received / total) : 0;
-            setLoadPct(Math.min(90, Math.round(p * 90)));
-            return pump();
-          });
+        if(r.ok){
+          var cl = parseInt(r.headers.get('content-length') || '0', 10);
+          if(cl > 0) GLB_TOTAL = cl;
         }
-        return pump();
+        var total = GLB_TOTAL;
+        var size = Math.ceil(total / CONC);
+        var received = [];
+        var doneBytes = 0;
+        var jobs = [];
+        function chunkReq(start, end, idx){
+          return fetch(url, {cache: 'force-cache', headers: {'Range': 'bytes=' + start + '-' + end}})
+            .then(function(r){
+              if(r.status !== 206) throw new Error('range-not-supported');
+              return r.arrayBuffer();
+            })
+            .then(function(buf){
+              received[idx] = buf;
+              doneBytes += buf.byteLength;
+              setLoadPct(Math.min(90, Math.round(doneBytes / total * 90)));
+            });
+        }
+        for(var i = 0; i < CONC; i++){
+          var s = i * size;
+          if(s >= total) break;
+          var e = Math.min(total - 1, (i + 1) * size - 1);
+          jobs.push(chunkReq(s, e, i));
+        }
+        return Promise.all(jobs).then(function(){
+          var buf = new Uint8Array(total);
+          var off = 0;
+          for(var k = 0; k < received.length; k++){
+            if(received[k]){ buf.set(new Uint8Array(received[k]), off); off += received[k].byteLength; }
+          }
+          mountBuffer(buf);
+        });
       })
       .catch(function(e){
-        window.__dbg = 'fetch-err ' + (e && e.message ? e.message : String(e));
-        loadFail('模型加载失败，请检查网络后重试');
+        window.__dbg = 'chunk-err ' + (e && e.message ? e.message : String(e));
+        if(window.console && console.error) console.error('[daijinduo] chunk fallback:', e && e.message);
+        return singleFetch(url, 2);
       });
   }
   if(loadBtn) loadBtn.addEventListener('click', startLoad);
