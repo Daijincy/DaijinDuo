@@ -3,42 +3,722 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DaijinDuo — 维护中</title>
+<title>DaijinDuo — 把屏幕折成玻璃</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='5' y='5' width='54' height='54' rx='14' fill='none' stroke='%23fff' stroke-width='3.5'/%3E%3Crect x='13' y='15' width='19' height='34' rx='5.5' fill='none' stroke='%23fff' stroke-width='3'/%3E%3Crect x='32' y='15' width='19' height='34' rx='5.5' fill='none' stroke='%23fff' stroke-width='3'/%3E%3C/svg%3E">
 <style>
-:root{--bg:#000;--ink:#f5f7fa;--dim:#9aa6b5;--line:rgba(255,255,255,.12);--accent:#2997ff}
-*{margin:0;padding:0;box-sizing:border-box}
-html,body{height:100%}
-body{font-family:"Noto Serif CJK SC","Source Han Serif SC","Noto Serif SC","Songti SC","SimSun","Songti TC",serif;
-  background:var(--bg);color:var(--ink);display:flex;align-items:center;justify-content:center;
-  -webkit-font-smoothing:antialiased;overflow:hidden}
-.ambient{position:fixed;inset:0;pointer-events:none;overflow:hidden}
-.ambient::before{content:"";position:absolute;width:560px;height:560px;left:50%;top:44%;transform:translate(-50%,-50%);
-  border-radius:50%;filter:blur(130px);background:radial-gradient(circle,rgba(41,151,255,.09),transparent 70%)}
-.card{position:relative;z-index:1;text-align:center;padding:0 24px;animation:fadein 1.1s ease both}
-.logo{width:62px;height:62px;margin:0 auto 30px;display:block;opacity:.92}
-.badge{display:inline-flex;align-items:center;gap:9px;font-size:12px;letter-spacing:3px;color:var(--dim);
-  border:1px solid var(--line);border-radius:100px;padding:7px 16px;margin-bottom:26px}
-.dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2.4s ease-in-out infinite}
-h1{font-size:clamp(32px,6.5vw,54px);font-weight:900;letter-spacing:10px;margin-bottom:18px;text-indent:10px}
-p{font-size:14.5px;color:var(--dim);line-height:2;letter-spacing:1.5px;max-width:28em;margin:0 auto}
-p b{color:var(--ink);font-weight:600}
-@keyframes fadein{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-@keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
-@media(prefers-reduced-motion:reduce){.card{animation:none}.dot{animation:none}}
+:root{
+  --bg:#000; --bg-2:#000; --ink:#f5f7fa; --ink-dim:#9aa6b5;
+  --accent:#2997ff; --accent-2:#7ec8ff; --accent-soft:rgba(41,151,255,.14);
+  --line:rgba(255,255,255,.09); --line-2:rgba(255,255,255,.16);
+  --glass:rgba(0,0,0,.45); --glass-2:rgba(0,0,0,.62);
+  --mono:"Noto Serif CJK SC","Source Han Serif SC","Noto Serif SC","Songti SC","SimSun",serif;
+  --sans:"Noto Serif CJK SC","Source Han Serif SC","Noto Serif SC","Songti SC","SimSun","Songti TC",serif;
+  --r-s:10px; --r-m:18px; --r-l:26px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);font-size:15px;background:var(--bg);color:var(--ink);line-height:1.7;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+::selection{background:rgba(41,151,255,.3)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+a{color:inherit;text-decoration:none}
+img{max-width:100%;display:block}
+
+/* grain overlay */
+body::after{content:"";position:fixed;inset:0;z-index:99;pointer-events:none;opacity:.05;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+
+/* ambient glow */
+.ambient{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.ambient::before,.ambient::after{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.ambient::before{width:640px;height:640px;left:8%;top:-180px;background:radial-gradient(circle,rgba(41,151,255,.14),transparent 70%)}
+.ambient::after{width:560px;height:560px;right:4%;top:24%;background:radial-gradient(circle,rgba(90,120,255,.08),transparent 70%)}
+
+.wrap{position:relative;z-index:1;max-width:1160px;margin:0 auto;padding:0 22px}
+
+/* ===== nav ===== */
+.nav{position:sticky;top:14px;z-index:50;margin-top:14px}
+.navbar{max-width:1160px;margin:0 auto;padding:8px 18px;display:flex;align-items:center;gap:14px;
+  background:rgba(0,0,0,.6);border:1px solid var(--line);border-radius:100px;
+  backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);box-shadow:0 8px 40px rgba(0,0,0,.5)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.2px}
+.brand svg{width:25px;height:25px;flex:none}
+.brand b{font-size:15px}
+.brand span{color:var(--ink-dim);font-weight:400;font-size:12px}
+.nav-links{display:none;gap:4px;margin-left:auto}
+.nav-links a{padding:7px 14px;border-radius:100px;font-size:13px;color:var(--ink-dim);transition:.2s}
+.nav-links a:hover{color:var(--ink);background:rgba(255,255,255,.06)}
+.nav-cta{margin-left:auto}
+.nav-cta a{display:inline-flex;align-items:center;gap:8px;padding:7px 15px;border-radius:100px;font-size:13px;font-weight:600;
+  background:var(--accent);color:#fff;transition:.2s;box-shadow:0 4px 20px rgba(41,151,255,.35)}
+.nav-cta a:hover{background:#1f86ea}
+@media(min-width:768px){.nav-links{display:flex}.nav-cta{margin-left:0}}
+
+/* ===== hero ===== */
+.hero{padding:64px 0 40px;display:grid;gap:40px;align-items:center}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;letter-spacing:2px;color:var(--accent-2);
+  font-family:var(--sans);font-weight:600;text-transform:uppercase;padding:6px 12px;border:1px solid var(--line-2);border-radius:100px;background:rgba(41,151,255,.06)}
+.eyebrow i{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+h1{font-size:clamp(28px,4.8vw,44px);line-height:1.2;font-weight:900;letter-spacing:-.4px;margin:18px 0 14px;text-wrap:balance}
+h1 em{font-style:normal;background:linear-gradient(120deg,#6db6ff,#cfe8ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{font-size:15px;color:var(--ink-dim);max-width:36em;font-weight:400}
+.cta-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:26px}
+.btn{display:inline-flex;align-items:center;gap:9px;padding:12px 20px;border-radius:14px;font-size:14px;font-weight:600;transition:.2s}
+.btn-primary{background:var(--accent);color:#fff;box-shadow:0 8px 30px rgba(41,151,255,.35)}
+.btn-primary:hover{background:#1f86ea;transform:translateY(-1px)}
+.btn-ghost{border:1px solid var(--line-2);color:var(--ink);background:rgba(255,255,255,.02)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent-2);background:var(--accent-soft)}
+.btn .ic{width:16px;height:16px;flex:none}
+.hero-meta{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:20px;font-size:12.5px;color:var(--ink-dim)}
+.hero-meta span{display:inline-flex;align-items:center;gap:6px}
+.hero-meta svg{width:14px;height:14px;color:var(--accent-2)}
+
+/* hero visual — iPhone 3D model with demo video on screen */
+.stage{display:flex;justify-content:center;padding:10px 0 6px}
+.phone3d{position:relative;width:min(300px,82vw);aspect-ratio:9/19.4;border-radius:44px;overflow:hidden;
+  background:radial-gradient(120% 90% at 50% 18%,#0d1015 0%,#07090c 55%,#020304 100%);
+  box-shadow:0 34px 90px rgba(0,0,0,.65)}
+.phone3d video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;opacity:0;pointer-events:none}
+.phone3d canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:pan-y}
+.phone3d.no-webgl canvas{display:none}
+.phone3d.no-webgl video{z-index:2;opacity:1}
+.phone3d-hint{position:absolute;left:50%;bottom:13px;transform:translateX(-50%);z-index:3;pointer-events:none;
+  font-size:11px;color:rgba(245,247,250,.5);font-family:var(--mono);letter-spacing:1.5px;white-space:nowrap;
+  text-shadow:0 1px 8px rgba(0,0,0,.8);transition:opacity 1.2s ease .4s;opacity:0}
+.phone3d.is-loaded .phone3d-hint{opacity:1}
+.phone3d.is-dragged .phone3d-hint{opacity:0}
+/* lazy-load gate: button + progress bar until user opts in */
+.phone3d-load{position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+  background:radial-gradient(120% 90% at 50% 18%,rgba(13,16,21,.82),rgba(2,3,4,.9));border-radius:44px}
+.phone3d-load-btn{display:inline-flex;align-items:center;gap:8px;padding:11px 20px;border-radius:14px;border:1px solid var(--line-2);
+  background:rgba(255,255,255,.04);color:var(--ink);font-family:var(--sans);font-size:13.5px;letter-spacing:1px;cursor:pointer;transition:.25s}
+.phone3d-load-btn:hover{border-color:var(--accent);color:var(--accent-2);background:var(--accent-soft);transform:translateY(-1px)}
+.phone3d-load-track{width:128px;height:2px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden;display:none}
+.phone3d-load-track i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .18s ease}
+.phone3d-load-pct{font-size:11.5px;color:var(--ink-dim);font-family:var(--mono);letter-spacing:1px;min-height:1em;display:none}
+.phone3d-load.is-loading .phone3d-load-btn{display:none}
+.phone3d-load.is-loading .phone3d-load-track,.phone3d-load.is-loading .phone3d-load-pct{display:block}
+.phone3d-load.is-error .phone3d-load-track i{background:linear-gradient(90deg,#ff5b5b,#ff8f8f)}
+.phone3d.no-webgl .phone3d-load{display:none}
+.duo-cap{margin-top:18px;text-align:center;font-size:12px;color:var(--ink-dim);font-family:var(--mono);letter-spacing:1px}
+.duo-cap::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:8px;vertical-align:1px}
+
+@media(min-width:960px){
+  .hero{grid-template-columns:1.05fr .95fr;gap:20px;padding:84px 0 56px}
+  .stage{padding-top:8px}
+}
+
+/* ===== sections ===== */
+section{scroll-margin-top:96px;padding:58px 0}
+.sec-head{max-width:620px;margin-bottom:30px}
+.kicker{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--accent-2);font-family:var(--sans);font-weight:600;display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.kicker::before{content:"";width:26px;height:1px;background:var(--accent-2)}
+.sec-head h2{font-size:clamp(21px,2.8vw,29px);font-weight:700;letter-spacing:-.2px}
+.sec-head p{color:var(--ink-dim);margin-top:10px;font-size:14px}
+
+/* facts strip */
+.facts{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:26px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.fact{display:flex;align-items:center;gap:12px;font-size:13px;color:var(--ink-dim);padding:8px 4px}
+.fact b{color:var(--ink);font-weight:600}
+.fact .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;box-shadow:0 0 12px rgba(41,151,255,.8)}
+@media(min-width:900px){.facts{grid-template-columns:repeat(4,1fr)}}
+
+/* feature grid */
+.grid{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:720px){.grid{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:1000px){.grid{grid-template-columns:repeat(3,1fr)}}
+.card{position:relative;padding:22px 20px;border-radius:var(--r-m);background:var(--glass);border:1px solid var(--line);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);transition:.25s}
+.card:hover{border-color:var(--line-2);background:var(--glass-2);transform:translateY(-2px)}
+.card .ic{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;
+  background:var(--accent-soft);color:var(--accent-2);border:1px solid rgba(41,151,255,.2)}
+.card .ic svg{width:20px;height:20px}
+.card h3{font-size:15px;font-weight:700;margin-bottom:6px}
+.card p{font-size:13px;color:var(--ink-dim)}
+
+/* steps */
+.steps{display:grid;grid-template-columns:1fr;gap:14px;counter-reset:st}
+@media(min-width:760px){.steps{grid-template-columns:repeat(4,1fr)}}
+.step{position:relative;padding:20px 18px 20px 46px;border-radius:var(--r-m);background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(12px)}
+.step::before{counter-increment:st;content:"0" counter(st);position:absolute;left:14px;top:20px;font-family:var(--mono);font-weight:600;color:var(--accent);font-size:15px}
+.step h3{font-size:14.5px;font-weight:700;margin-bottom:5px}
+.step p{font-size:12.5px;color:var(--ink-dim)}
+
+/* download */
+.dl{display:grid;gap:14px;grid-template-columns:1fr}
+@media(min-width:860px){.dl{grid-template-columns:1.35fr 1fr}}
+.dl-card{padding:26px;border-radius:var(--r-l);background:linear-gradient(160deg,rgba(0,0,0,.72),rgba(0,0,0,.5));border:1px solid var(--line-2);backdrop-filter:blur(16px)}
+.dl-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.dl-badge{width:52px;height:52px;border-radius:14px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 8px 26px rgba(41,151,255,.4)}
+.dl-badge svg{width:26px;height:26px}
+.dl-title{font-size:18px;font-weight:800}
+.dl-title .ver{font-family:var(--mono);color:var(--accent-2);font-size:12.5px;margin-left:6px}
+.dl-spec{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:18px}
+.spec{padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid var(--line)}
+.spec dt{font-size:11px;color:var(--ink-dim);letter-spacing:.4px}
+.spec dd{font-size:13px;font-weight:600;margin-top:3px}
+.dl-actions{display:flex;flex-direction:column;gap:10px}
+.dl-actions .btn{justify-content:center;width:100%}
+.note{font-size:12px;color:var(--ink-dim);text-align:center;margin-top:10px}
+.note b{color:var(--accent-2);font-weight:600}
+.rt{padding:22px;border-radius:var(--r-l);background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(14px)}
+.rt h3{font-size:15px;font-weight:700;margin-bottom:14px}
+.rt table{width:100%;border-collapse:collapse;table-layout:fixed}
+.rt th{font-family:var(--mono);font-size:11px;text-align:left;color:var(--ink-dim);font-weight:500;padding:8px 6px;border-bottom:1px solid var(--line)}
+.rt th:nth-child(1){width:30%}
+.rt td{padding:9px 6px;font-size:13px;border-bottom:1px solid var(--line);vertical-align:top}
+.rt tr:last-child td{border-bottom:none}
+.rt td b{color:var(--ink);font-family:var(--mono);font-size:12px}
+.rt td span{color:var(--ink-dim)}
+
+/* footer */
+footer{padding:44px 0 40px;border-top:1px solid var(--line)}
+.foot{display:flex;flex-direction:column;gap:18px;align-items:center;text-align:center}
+.foot .brand{justify-content:center}
+.foot p{font-size:12.5px;color:var(--ink-dim);max-width:44em}
+.foot a{color:var(--accent-2)}
+.foot a:hover{text-decoration:underline}
+.foot .mono{font-family:var(--mono);color:var(--ink-dim)}
+
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *{animation:none!important}
+}
 </style>
 </head>
 <body>
-<div class="ambient"></div>
-<div class="card">
-  <svg class="logo" viewBox="0 0 64 64" fill="none" aria-hidden="true">
-    <rect x="5" y="5" width="54" height="54" rx="14" stroke="#fff" stroke-width="3.5"/>
-    <rect x="13" y="15" width="19" height="34" rx="5.5" stroke="#fff" stroke-width="3"/>
-    <rect x="32" y="15" width="19" height="34" rx="5.5" stroke="#fff" stroke-width="3"/>
-  </svg>
-  <div class="badge"><i class="dot"></i>MAINTENANCE</div>
-  <h1>维护中</h1>
-  <p>我们正在优化 3D 模型加载体验<br>网站暂时关闭，请稍后再来</p>
+<div class="ambient" aria-hidden="true"></div>
+
+<!-- ===== nav ===== -->
+<header class="nav">
+  <nav class="navbar">
+    <a class="brand" href="#top" aria-label="DaijinDuo 首页">
+      <svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><rect x="5" y="5" width="54" height="54" rx="14" stroke="#fff" stroke-width="2.6"/><rect x="13" y="15" width="19" height="34" rx="5.5" stroke="#fff" stroke-width="2.4"/><rect x="32" y="15" width="19" height="34" rx="5.5" stroke="#fff" stroke-width="2.4"/></svg>
+      <b>DaijinDuo</b><span>Android</span>
+    </a>
+    <div class="nav-links">
+      <a href="#features">功能</a>
+      <a href="#how">效果</a>
+      <a href="#download">下载</a>
+      <a href="https://github.com/Daijincy/DaijinDuo" target="_blank" rel="noopener">GitHub</a>
+    </div>
+    <div class="nav-cta"><a href="#download">下载 v0.1.1</a></div>
+  </nav>
+</header>
+
+<main id="top">
+<div class="wrap">
+  <!-- ===== hero ===== -->
+  <section class="hero">
+    <div>
+      <span class="eyebrow"><i></i>Android · 开源 · 复刻 iPhone DUO</span>
+      <h1>让手机屏幕，变成<em>一块会呼吸的玻璃。</em></h1>
+      <p class="sub">DaijinDuo 用陀螺仪驱动折叠效果：屏幕平放时平整如镜，向任意方向倾斜时沿垂直铰链 90° 折叠，带透视缩短、景深模糊与玻璃反光。</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="#download">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          下载 Android 版 · v0.1.1
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/Daijincy/DaijinDuo" target="_blank" rel="noopener">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12 12 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg>
+          查看源码
+        </a>
+      </div>
+      <div class="hero-meta">
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12l4 4L19 6"/></svg>免 Root</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12l4 4L19 6"/></svg>纯本地渲染</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12l4 4L19 6"/></svg>数据不出设备</span>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div id="phone3d" class="phone3d">
+        <video id="phone-video" src="assets/effect.mp4" autoplay muted loop playsinline preload="auto" tabindex="-1" aria-hidden="true"></video>
+        <canvas id="phone3d-canvas" aria-label="DaijinDuo 效果演示 · 3D 模型"></canvas>
+        <div class="phone3d-load" id="phone3d-load" aria-hidden="true">
+          <button type="button" class="phone3d-load-btn" id="phone3d-load-btn">加载完整资源</button>
+          <div class="phone3d-load-track"><i id="phone3d-load-fill"></i></div>
+          <span class="phone3d-load-pct" id="phone3d-load-pct"></span>
+        </div>
+        <span class="phone3d-hint" aria-hidden="true">DRAG · 360°</span>
+      </div>
+    </div>
+  </section>
+  <p class="duo-cap" aria-hidden="true">实际效果 · 由陀螺仪驱动</p>
+
+  <!-- ===== facts ===== -->
+  <div class="facts">
+    <div class="fact"><span class="dot"></span>免费 <b>开源</b> 使用</div>
+    <div class="fact"><span class="dot"></span>无需 <b>Root</b> 权限</div>
+    <div class="fact"><span class="dot"></span>照片仅本地处理，<b>不上传</b></div>
+    <div class="fact"><span class="dot"></span>支持<b>陀螺仪</b>的 Android 设备</div>
+  </div>
 </div>
+
+<!-- ===== features ===== -->
+<section id="features">
+<div class="wrap">
+  <div class="sec-head">
+    <div class="kicker">Features</div>
+    <h2>复刻每一处质感细节</h2>
+    <p>从传感器映射到渲染管线，都和网页端的原版逻辑保持一致。</p>
+  </div>
+  <div class="grid">
+    <article class="card">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></div>
+      <h3>陀螺仪驱动折叠</h3>
+      <p>原生加速度计经 JS 桥驱动 WebView 渲染内核，映射公式与网页端逐行一致（sign=-1 + 指数平滑），倾斜时画面随之折叠。</p>
+    </article>
+    <article class="card">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></div>
+      <h3>真实景深模糊</h3>
+      <p>采用 Gaussian 金字塔实现折叠处的景深虚化，越靠近铰链模糊越重，边缘带透视缩短，观感贴近真实物理折页。</p>
+    </article>
+    <article class="card">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M20 20V10M4 6h16v4H4z"/><path d="M9 20v-6M15 20v-6"/></svg></div>
+      <h3>铰链黑边 + 玻璃反光</h3>
+      <p>铰链处叠加黑边渐变，面板带高光反射，把"折起来"的层次和玻璃质感一并还原。</p>
+    </article>
+    <article class="card">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg></div>
+      <h3>WebView / WebGL2 内核</h3>
+      <p>渲染完全内嵌浏览器内核，避开原生 GLES 兼容性差异，几乎全设备可用。</p>
+    </article>
+    <article class="card">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a5 5 0 0 1 5 5c0 2-1 3-1 3h-8s-1-1-1-3a5 5 0 0 1 5-5z"/><path d="M9 20h6M10 17h4"/></svg></div>
+      <h3>复古简约 UI</h3>
+      <p>全字体思源宋体（Noto Serif CJK）· 黑底米白 · 白描边品牌 Logo，打开即是成品观感。</p>
+    </article>
+    <article class="card">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 12l9 5 9-5"/><path d="M3 16l9 5 9-5"/></svg></div>
+      <h3>液态玻璃底栏</h3>
+      <p>iOS 26 Liquid Glass 风格悬浮 Tab 栏：Haze 真实背景模糊 · 顶部渐变高光 · 弹性液态选中 Pill。</p>
+    </article>
+  </div>
+</div>
+</section>
+
+<!-- ===== how ===== -->
+<section id="how">
+<div class="wrap">
+  <div class="sec-head">
+    <div class="kicker">How it works</div>
+    <h2>四步，从截图到折叠</h2>
+    <p>打开应用，选一张截图，剩下的交给陀螺仪。</p>
+  </div>
+  <div class="steps">
+    <div class="step"><h3>选择截图</h3><p>从相册挑选手机桌面截图，或通过系统相册（Photo Picker）直接选取。</p></div>
+    <div class="step"><h3>全屏沉浸</h3><p>点击图片进入全屏效果页，画面即刻铺满整块屏幕。</p></div>
+    <div class="step"><h3>倾斜折叠</h3><p>倾斜手机，折叠量随倾角从 0° 到 90° 连续变化，方向决定折向。</p></div>
+    <div class="step"><h3>轻点退出</h3><p>轻点屏幕 3 次（800ms 内），一步回到优雅主页。</p></div>
+  </div>
+</div>
+</section>
+
+<!-- ===== download ===== -->
+<section id="download">
+<div class="wrap">
+  <div class="sec-head">
+    <div class="kicker">Download</div>
+    <h2>为 Android 下载</h2>
+    <p>免 Root，安装即用。目前支持陀螺仪的主流 Android 设备均可体验。</p>
+  </div>
+
+  <div class="dl">
+    <div class="dl-card">
+      <div class="dl-top">
+        <div class="dl-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></div>
+        <div>
+          <div class="dl-title">DaijinDuo<span class="ver">v0.1.1</span></div>
+          <div style="font-size:12.5px;color:var(--ink-dim)">Android · 安装包（.apk）· 包名 com.daijinduo.github</div>
+        </div>
+      </div>
+      <dl class="dl-spec">
+        <div class="spec"><dt>平台</dt><dd>Android</dd></div>
+        <div class="spec"><dt>传感器</dt><dd>需陀螺仪</dd></div>
+        <div class="spec"><dt>权限</dt><dd>免 Root</dd></div>
+        <div class="spec"><dt>文件大小</dt><dd>11 MB</dd></div>
+      </dl>
+      <div class="dl-actions">
+        <a class="btn btn-primary" href="https://aka.doubaocdn.com/s/7uV5yNFTx6" download="DaijinDuo-v0.1.1.apk">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          下载 DaijinDuo-v0.1.1.apk
+        </a>
+        <span class="note">国内 CDN 直链 · 备用：<a href="downloads/DaijinDuo-v0.1.1.apk">本站镜像</a> / <a href="https://github.com/Daijincy/DaijinDuo/releases/download/v0.1.1/DaijinDuo-v0.1.1.apk" target="_blank" rel="noopener">GitHub Release</a></span>
+      </div>
+    </div>
+
+    <div class="rt">
+      <h3>版本记录</h3>
+      <table>
+        <thead><tr><th>版本</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><b>v0.1.1</b></td><td><span>强制内置思源宋体（子集化打包，全设备渲染一致）· 主题色改纯黑白，包名 com.daijinduo.github</span></td></tr>
+          <tr><td><b>v0.1ZS</b></td><td><span>首个正式版：复古简约 UI · 思源宋体 · 液态玻璃底栏 · 双页结构（Duo/Show），包名 com.daijinduo.github</span></td></tr>
+        </tbody>
+      </table>
+      <p class="note" style="text-align:left;margin-top:12px">注：v1.0.0 ~ v1.1.2 为开发期迭代版本，已移除；正式版从 v0.1ZS 起算。</p>
+    </div>
+  </div>
+</div>
+</section>
+</main>
+
+<footer>
+<div class="wrap foot">
+  <a class="brand" href="#top">
+    <svg width="25" height="25" viewBox="0 0 64 64" fill="none" aria-hidden="true"><rect x="5" y="5" width="54" height="54" rx="14" stroke="#fff" stroke-width="2.6"/><rect x="13" y="15" width="19" height="34" rx="5.5" stroke="#fff" stroke-width="2.4"/><rect x="32" y="15" width="19" height="34" rx="5.5" stroke="#fff" stroke-width="2.4"/></svg>
+    <b>DaijinDuo</b>
+  </a>
+  <p>用 Android 陀螺仪复刻 iPhone DUO 的折叠玻璃效果。核心代码开源，欢迎到 <a href="https://github.com/Daijincy/DaijinDuo" target="_blank" rel="noopener">GitHub</a> 查看、提建议或贡献。灵感来自 <a href="https://solotilt.com/" target="_blank" rel="noopener">solotilt.com</a>。</p>
+  <p class="mono">© 2026 DaijinDuo · MIT · v0.1.1</p>
+</div>
+</footer>
+
+<script src="assets/vendor/three.min.js"></script>
+<script src="assets/vendor/DRACOLoader.js"></script>
+<script src="assets/vendor/GLTFLoader.js"></script>
+<script src="assets/vendor/OrbitControls.js"></script>
+<script>
+(function(){
+  'use strict';
+  var container = document.getElementById('phone3d');
+  var video = document.getElementById('phone-video');
+  var canvas = document.getElementById('phone3d-canvas');
+  if(!container || !video || !canvas) return;
+  if(!window.THREE || !window.WebGLRenderingContext){
+    container.classList.add('no-webgl');
+    return;
+  }
+
+  var renderer;
+  try{
+    renderer = new THREE.WebGLRenderer({canvas:canvas, alpha:true, antialias:true, powerPreference:'high-performance'});
+  }catch(e){
+    container.classList.add('no-webgl');
+    return;
+  }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.12;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(35, 1, 0.01, 60);
+  camera.position.set(0, 0.35, 2.6);
+
+  /* --- studio environment: programmatic softboxes, no HDR file --- */
+  var pmrem = new THREE.PMREMGenerator(renderer);
+  function makeStudioEnv(){
+    var c = document.createElement('canvas'); c.width = 1024; c.height = 512;
+    var ctx = c.getContext('2d');
+    var g = ctx.createLinearGradient(0, 0, 0, 512);
+    g.addColorStop(0, '#4c5158'); g.addColorStop(0.22, '#2b2e33'); g.addColorStop(1, '#0b0c0e');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 1024, 512);
+    ctx.fillStyle = 'rgba(255,255,255,0.13)'; ctx.fillRect(0, 190, 150, 150);
+    ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(874, 160, 150, 190);
+    ctx.fillStyle = 'rgba(190,205,255,0.10)'; ctx.fillRect(437, 60, 150, 120);
+    var tex = new THREE.CanvasTexture(c);
+    tex.mapping = THREE.EquirectangularReflectionMapping;
+    return tex;
+  }
+  var envRT = pmrem.fromEquirectangular(makeStudioEnv());
+  scene.environment = envRT.texture;
+
+  /* --- lights: key / fill / rim --- */
+  var key = new THREE.DirectionalLight(0xffffff, 2.3);
+  key.position.set(2.6, 4.2, 3.4);
+  key.castShadow = true;
+  key.shadow.mapSize.set(1024, 1024);
+  key.shadow.camera.near = 0.5; key.shadow.camera.far = 12;
+  key.shadow.camera.left = -2; key.shadow.camera.right = 2;
+  key.shadow.camera.top = 3; key.shadow.camera.bottom = -3;
+  key.shadow.bias = -0.0006;
+  scene.add(key);
+  var fill = new THREE.DirectionalLight(0xc2d4ff, 0.6);
+  fill.position.set(-3.2, 0.8, -1.4);
+  scene.add(fill);
+  var rim = new THREE.DirectionalLight(0xffffff, 0.4);
+  rim.position.set(0, -2.2, -2.8);
+  scene.add(rim);
+
+  /* --- ground contact shadow --- */
+  var ground = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), new THREE.ShadowMaterial({opacity: 0.42}));
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -0.815;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  /* --- video texture --- */
+  var videoTex = new THREE.VideoTexture(video);
+  videoTex.minFilter = THREE.LinearFilter;
+  videoTex.magFilter = THREE.LinearFilter;
+  videoTex.generateMipmaps = false;
+  videoTex.encoding = THREE.sRGBEncoding;
+
+  /* --- model --- */
+  var group = new THREE.Group();
+  scene.add(group);
+  var controls = null;
+  var ready = false;
+  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function size(){
+    var w = container.clientWidth, h = container.clientHeight;
+    if(!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', size);
+  size();
+
+  var loader = new THREE.GLTFLoader();
+  var dracoLoader = new THREE.DRACOLoader();
+  dracoLoader.setDecoderPath('assets/vendor/draco/');
+  loader.setDRACOLoader(dracoLoader);
+
+  function onModelLoaded(gltf){
+    var model = gltf.scene;
+
+    /* The official model is a multi-material mesh: screen stack lives inside a
+       single Mesh with a material array. Find the 'OLED off' layer (visible
+       screen), replace it with the video-lit material, and make the covering
+       Glass / Glass tint layers transparent so it shows through. */
+    var screenMesh = null;
+    var screenMatIdx = -1;
+    model.traverse(function(o){
+      if(!o.isMesh) return;
+      var mats = Array.isArray(o.material) ? o.material : [o.material];
+      for(var i = 0; i < mats.length; i++){
+        var m = mats[i];
+        if(!m) continue;
+        if(m.name === 'Glass' || m.name === 'Glass tint'){
+          m.transparent = true;
+          m.opacity = 0;
+          m.depthWrite = true;
+        } else if(!screenMesh && (m.name === 'OLED off' || m.name === 'OLED')){
+          screenMesh = o;
+          screenMatIdx = Array.isArray(o.material) ? i : -1;
+          var vm = new THREE.MeshPhysicalMaterial({
+            emissive: 0x0d0f13,
+            emissiveMap: videoTex,
+            emissiveIntensity: 1.0,
+            roughness: 0.32,
+            metalness: 0,
+            clearcoat: 1.0,
+            clearcoatRoughness: 0.08
+          });
+          if(Array.isArray(o.material)){ o.material[i] = vm; }
+          else { o.material = vm; }
+          o.castShadow = false;
+        }
+      }
+    });
+    if(!screenMesh){
+      model.traverse(function(o){ if(o.isMesh && !screenMesh) screenMesh = o; });
+    }
+    if(screenMesh){
+      /* screen lights up once the video is actually playing */
+      video.addEventListener('playing', function(){
+        var mats = Array.isArray(screenMesh.material) ? screenMesh.material : [screenMesh.material];
+        if(screenMatIdx >= 0 && mats[screenMatIdx] && mats[screenMatIdx].emissive){
+          mats[screenMatIdx].emissive.setHex(0xffffff);
+        } else if(mats[0] && mats[0].emissive){
+          mats[0].emissive.setHex(0xffffff);
+        }
+      });
+    }
+    model.traverse(function(o){
+      if(o.isMesh){
+        o.castShadow = true;
+        o.receiveShadow = false;
+        if(o.material && o.material.map) o.material.map.encoding = THREE.sRGBEncoding;
+      }
+    });
+
+    model.scale.setScalar(10);   /* official 17 Pro is authored in meters */
+    model.rotation.y = Math.PI;   /* official 17 Pro: screen faces -Z, flip 180 to camera */
+    group.add(model);
+
+    /* stand the model on the contact plane */
+    var bb = new THREE.Box3().setFromObject(model);
+    var minY = bb.min.y;
+    group.position.y = -minY - 0.815;
+
+    /* frame the camera from the model height */
+    var height = bb.max.y - minY;
+    var dist = (height / 2) / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * 1.16;
+    camera.position.set(0, height * 0.16 + 0.18, dist);
+    camera.lookAt(0, height * 0.08, 0);
+
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, height * 0.08, 0);
+    controls.enableZoom = false;
+    controls.enablePan = false;
+    controls.minPolarAngle = Math.PI * 0.26;
+    controls.maxPolarAngle = Math.PI * 0.82;
+    controls.autoRotate = !reduced;
+    controls.autoRotateSpeed = 1.15;
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.update();
+
+    /* pause auto-rotate while dragging, resume 4s after */
+    var resumeTimer = null;
+    renderer.domElement.addEventListener('pointerdown', function(){
+      container.classList.add('is-dragged');
+      if(controls) controls.autoRotate = false;
+      clearTimeout(resumeTimer);
+    });
+    window.addEventListener('pointerup', function(){
+      if(!controls) return;
+      clearTimeout(resumeTimer);
+      resumeTimer = setTimeout(function(){
+        if(!reduced) controls.autoRotate = true;
+      }, 4000);
+    });
+
+    ready = true;
+    window.__sceneReady = true;
+    container.classList.add('is-loaded');
+    window.__phone3d = {camera: camera, controls: controls, model: model, group: group, screen: screenMesh};
+    window.__dbg = 'loaded';
+  }
+
+  /* lazy full-resource load: user clicks the button, we stream the 25MB
+     original GLB with a progress bar, then parse and mount. */
+  var loadEl = document.getElementById('phone3d-load');
+  var loadBtn = document.getElementById('phone3d-load-btn');
+  var loadFill = document.getElementById('phone3d-load-fill');
+  var loadPct = document.getElementById('phone3d-load-pct');
+  function setLoadPct(p){
+    if(loadFill) loadFill.style.width = p + '%';
+    if(loadPct) loadPct.textContent = Math.round(p) + '%';
+  }
+  function setLoadState(s){
+    if(!loadEl) return;
+    loadEl.classList.toggle('is-loading', s === 'loading');
+    loadEl.classList.toggle('is-error', s === 'error');
+  }
+  function loadFail(msg){
+    setLoadState('error');
+    if(loadPct) loadPct.textContent = msg;
+    if(loadBtn){ loadBtn.textContent = '重新加载'; loadBtn.style.display = 'inline-flex'; }
+    startLoad.started = false;
+  }
+  /* Faster loading without touching the model/textures:
+     1) Range requests split the 25MB GLB into 4 parallel streams (GitHub Pages
+        serves 206 ranges) — much better throughput on throttled single connections;
+     2) fixed version query + force-cache — repeat visits hit the browser cache;
+     3) any chunk failure falls back to one streaming download of the whole file. */
+  var GLB_TOTAL = 25657660; /* known size, used if HEAD fails */
+  function mountBuffer(buf){
+    window.__dbg = 'parsing';
+    setLoadPct(94);
+    loader.parse(buf.buffer, '', function(gltf){
+      setLoadPct(100);
+      onModelLoaded(gltf);
+      if(loadEl){ loadEl.classList.add('is-done'); setTimeout(function(){ loadEl.style.display = 'none'; }, 420); }
+    }, function(e){
+      window.__dbg = 'parse-err ' + (e && e.message ? e.message : String(e));
+      loadFail('模型解析失败，请重试');
+    });
+  }
+  function singleFetch(url, tries){
+    return fetch(url, {cache: 'default'}).then(function(r){
+      if(!r.ok) throw new Error('GLB HTTP ' + r.status);
+      return r.arrayBuffer();
+    }).then(function(buf){
+      mountBuffer(buf);
+    }).catch(function(e){
+      if(tries > 0) return singleFetch(url, tries - 1);
+      window.__dbg = 'fetch-err ' + (e && e.message ? e.message : String(e));
+      loadFail('模型加载失败，请检查网络后重试');
+    });
+  }
+  function startLoad(){
+    if(startLoad.started) return;
+    startLoad.started = true;
+    setLoadState('loading');
+    setLoadPct(0);
+    window.__dbg = 'fetching';
+    var url = 'assets/models/apple-iphone-17-pro.glb?v=2';
+    var CONC = 4;
+    fetch(url, {cache: 'no-store', method: 'HEAD'})
+      .then(function(r){
+        if(r.ok){
+          var cl = parseInt(r.headers.get('content-length') || '0', 10);
+          if(cl > 0) GLB_TOTAL = cl;
+        }
+        var total = GLB_TOTAL;
+        var size = Math.ceil(total / CONC);
+        var received = [];
+        var doneBytes = 0;
+        var jobs = [];
+        function chunkReq(start, end, idx){
+          return fetch(url, {cache: 'default', headers: {'Range': 'bytes=' + start + '-' + end}})
+            .then(function(r){
+              if(r.status !== 206) throw new Error('range-not-supported');
+              return r.arrayBuffer();
+            })
+            .then(function(buf){
+              received[idx] = buf;
+              doneBytes += buf.byteLength;
+              setLoadPct(Math.min(90, Math.round(doneBytes / total * 90)));
+            });
+        }
+        for(var i = 0; i < CONC; i++){
+          var s = i * size;
+          if(s >= total) break;
+          var e = Math.min(total - 1, (i + 1) * size - 1);
+          jobs.push(chunkReq(s, e, i));
+        }
+        return Promise.all(jobs).then(function(){
+          var buf = new Uint8Array(total);
+          var off = 0;
+          for(var k = 0; k < received.length; k++){
+            if(received[k]){ buf.set(new Uint8Array(received[k]), off); off += received[k].byteLength; }
+          }
+          mountBuffer(buf);
+        });
+      })
+      .catch(function(e){
+        window.__dbg = 'chunk-err ' + (e && e.message ? e.message : String(e));
+        if(window.console && console.error) console.error('[daijinduo] chunk fallback:', e && e.message);
+        return singleFetch(url, 2);
+      });
+  }
+  if(loadBtn) loadBtn.addEventListener('click', startLoad);
+  /* render loop */
+  function loop(){
+    if(!ready) return;
+    if(controls) controls.update();
+    renderer.render(scene, camera);
+  }
+  renderer.setAnimationLoop(loop);
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden) renderer.setAnimationLoop(null);
+    else renderer.setAnimationLoop(loop);
+  });
+
+  /* play video only while hero is in viewport */
+  if('IntersectionObserver' in window){
+    var io = new IntersectionObserver(function(es){
+      es.forEach(function(e){
+        if(e.isIntersecting){
+          video.muted = true;
+          var p = video.play();
+          if(p && p.catch) p.catch(function(){});
+        } else {
+          video.pause();
+        }
+      });
+    }, {threshold: 0.35});
+    io.observe(container);
+  }
+})();
+</script>
 </body>
 </html>
