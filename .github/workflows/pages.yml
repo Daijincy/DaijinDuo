@@ -1,0 +1,41 @@
+name: Deploy site to GitHub Pages
+
+# 官网内容维护在 gh-pages 分支；此 workflow 在 main 分支，
+# 通过手动触发（workflow_dispatch）或 main 分支 push 时，将 gh-pages 内容发布到 Pages。
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pages.yml'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout gh-pages (site)
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: site
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
