@@ -233,8 +233,7 @@ private fun SettingRow(
             colors = SliderDefaults.colors(
                 thumbColor = AccentB,
                 activeTrackColor = Color.White.copy(alpha = 0.85f),
-                inactiveTrackColor = Color.White.copy(alpha = 0.2f),
-                thumbOutlineColor = Color.Transparent
+                inactiveTrackColor = Color.White.copy(alpha = 0.2f)
             )
         )
         Text(
