@@ -186,14 +186,15 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
 .foot a:hover{text-decoration:underline}
 .foot .mono{font-family:var(--mono);color:var(--ink-dim)}
 
-/* ==== scroll reveal (lightweight, GPU-friendly: opacity only) ==== */
-.reveal{opacity:0;transition:opacity .45s ease}
-.reveal.in{opacity:1}
+/* ==== scroll reveal (noticeable but cheap: opacity + small rise) ==== */
+.reveal{opacity:0;transform:translateY(20px);transition:opacity .6s cubic-bezier(.22,1,.36,1),transform .6s cubic-bezier(.22,1,.36,1)}
+.reveal.in{opacity:1;transform:none}
+.card.reveal.in:hover,.step.reveal.in:hover{transform:translateY(-2px)}
 
 @media(prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}
   *{animation:none!important}
-  .reveal{opacity:1!important;transition:none!important}
+  .reveal{opacity:1!important;transform:none!important;transition:none!important}
 }
 </style>
 </head>
