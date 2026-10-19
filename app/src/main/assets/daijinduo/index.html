@@ -38,6 +38,15 @@ var CONFIG = {
   gradientOpacity: 0.7, gradientStart: 0.26, gradientEnd: 1.0
 };
 
+// ---------- 用户设置（Android 经 JS 桥注入，覆盖默认值）----------
+// strength = 模糊强度（占图宽比例）· sensitivity = 陀螺仪灵敏度增益（1=原版）· fullAngle = 模糊触发角度
+var USER = { strength: null, sensitivity: 1.0, fullAngle: null };
+window.__setConfig = function(o){
+  if (o && typeof o.strength === 'number') USER.strength = o.strength;
+  if (o && typeof o.sensitivity === 'number') USER.sensitivity = o.sensitivity;
+  if (o && typeof o.fullAngle === 'number') USER.fullAngle = o.fullAngle;
+};
+
 // ---------- WebGL2 ----------
 var canvas = document.getElementById('gl');
 var gl = canvas.getContext('webgl2', { antialias: false, alpha: false });
@@ -336,17 +345,22 @@ function draw(C){
   gl.clearColor(0.02, 0.02, 0.03, 1);
   gl.clear(gl.COLOR_BUFFER_BIT);
   if (!imageReady) return;
+  // 灵敏度增益：放大折叠对倾斜角的响应（保留符号，phase 方向不变）
+  var turnC = C * (USER.sensitivity || 1.0);
   gl.useProgram(foldProg);
   gl.bindVertexArray(quadVAO);
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, srcTex);
   gl.uniform1i(U.u_image, 0);
-  gl.uniform1f(U.u_turn, Math.min(Math.abs(C) / 180, 1));
+  gl.uniform1f(U.u_turn, Math.min(Math.abs(turnC) / 180, 1));
   gl.uniform1f(U.u_phase, +(C >= 0));
   gl.uniform1f(U.u_aspect, canvas.width / canvas.height);
   gl.uniform2f(U.u_imageSize, canvas.width, canvas.height);
   gl.uniform2f(U.u_coverScale, 1, 1);
-  gl.uniform3f(U.u_blurAngle, CONFIG.strength, CONFIG.fullAngle, CONFIG.anglePower);
+  gl.uniform3f(U.u_blurAngle,
+    (USER.strength != null ? USER.strength : CONFIG.strength),
+    (USER.fullAngle != null ? USER.fullAngle : CONFIG.fullAngle),
+    CONFIG.anglePower);
   gl.uniform3f(U.u_blurSpread, CONFIG.fullDistance, CONFIG.distancePower, CONFIG.edgeBlur);
   gl.uniform3f(U.u_blackGradient, CONFIG.gradientOpacity, CONFIG.gradientStart, CONFIG.gradientEnd);
   gl.drawArrays(gl.TRIANGLES, 0, 6);

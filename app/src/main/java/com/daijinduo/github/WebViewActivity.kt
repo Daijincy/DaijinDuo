@@ -69,6 +69,7 @@ class WebViewActivity : Activity(), SensorEventListener {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                pushSettings()
                 pushImageIfReady()
             }
 
@@ -93,7 +94,10 @@ class WebViewActivity : Activity(), SensorEventListener {
             object {
                 @android.webkit.JavascriptInterface
                 fun onReady() {
-                    runOnUiThread { pushImageIfReady() }
+                    runOnUiThread {
+                        pushSettings()
+                        pushImageIfReady()
+                    }
                 }
 
                 @android.webkit.JavascriptInterface
@@ -134,6 +138,15 @@ class WebViewActivity : Activity(), SensorEventListener {
     }
 
     private var imagePushed = false
+
+    /** 注入用户设置到渲染内核（模糊强度 / 灵敏度 / 触发角度） */
+    private fun pushSettings() {
+        val (blur, sens, angle) = SettingsStore.snapshot(this)
+        webView.evaluateJavascript(
+            "window.__setConfig && window.__setConfig({strength:$blur, sensitivity:$sens, fullAngle:$angle})",
+            null
+        )
+    }
 
     /** 页面就绪后传图（幂等，避免重复注入） */
     private fun pushImageIfReady() {

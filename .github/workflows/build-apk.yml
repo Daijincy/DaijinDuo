@@ -71,12 +71,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cd app/build/outputs/apk/release
-          cp app-release.apk DaijinDuo-v0.1.1.apk
-          gh release create v0.1.1 "DaijinDuo-v0.1.1.apk" \
+          cp app-release.apk DaijinDuo-v0.2.apk
+          gh release create v0.2 "DaijinDuo-v0.2.apk" \
             --repo "$GITHUB_REPOSITORY" \
-            --title "DaijinDuo v0.1.1 正式版" \
-            --notes "DaijinDuo —— 利用 Android 陀螺仪实现 iPhone DUO 的偏转效果（黑白主题 · 强制内置思源宋体 · 液态玻璃底栏）" || \
-            gh release upload v0.1.1 "DaijinDuo-v0.1.1.apk" \
+            --title "DaijinDuo v0.2 正式版" \
+            --notes "DaijinDuo v0.2 —— 新增效果设置（模糊强度 / 陀螺仪灵敏度 / 模糊触发角度）· 黑白主题 · 强制内置思源宋体 · 液态玻璃底栏 · 签名不变" || \
+            gh release upload v0.2 "DaijinDuo-v0.2.apk" \
               --repo "$GITHUB_REPOSITORY" --clobber || true
 
       - name: Upload APK artifact
