@@ -25,14 +25,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,14 +40,12 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.daijinduo.github.R
-import com.daijinduo.github.SettingsStore
 
 /**
  * Duo 主页：复古简约 · 思源宋体
@@ -134,10 +128,14 @@ fun HomeScreen(
 
         Spacer(Modifier.height(18.dp))
 
-        // 效果设置：模糊强度 / 陀螺仪灵敏度 / 模糊触发角度（本地持久化）
-        EffectSettings()
-
-        Spacer(Modifier.height(16.dp))
+        Text(
+            text = "选图后 · 双击屏幕呼出效果调节",
+            color = TextSecondary.copy(alpha = 0.75f),
+            fontSize = 11.5.sp,
+            letterSpacing = 1.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
         Text(
             text = "轻点三次退出全屏 · 屏幕朝上平放 · 倾斜折叠",
             color = TextSecondary.copy(alpha = 0.55f),
@@ -147,102 +145,6 @@ fun HomeScreen(
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(22.dp))
-    }
-}
-
-/** 效果设置卡：复古简约黑底细框，三个可调滑块（写入 SharedPreferences） */
-@Composable
-private fun EffectSettings() {
-    val context = LocalContext.current
-    var blur by remember { mutableFloatStateOf(SettingsStore.blurStrength(context)) }
-    var sens by remember { mutableFloatStateOf(SettingsStore.sensitivity(context)) }
-    var angle by remember { mutableFloatStateOf(SettingsStore.blurTriggerAngle(context)) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(SurfaceDark.copy(alpha = 0.55f))
-            .border(
-                width = 1.dp,
-                color = Color.White.copy(alpha = 0.14f),
-                shape = RoundedCornerShape(16.dp)
-            )
-            .padding(horizontal = 14.dp, vertical = 12.dp)
-    ) {
-        Text(
-            text = "效果设置",
-            color = TextPrimary,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 2.sp
-        )
-        Spacer(Modifier.height(2.dp))
-        SettingRow(
-            label = "模糊强度",
-            valueText = "%.3f".format(blur),
-            value = blur,
-            min = SettingsStore.MIN_BLUR,
-            max = SettingsStore.MAX_BLUR,
-            onChange = { blur = it; SettingsStore.setBlurStrength(context, it) }
-        )
-        SettingRow(
-            label = "陀螺仪灵敏度",
-            valueText = "%.1f×".format(sens),
-            value = sens,
-            min = SettingsStore.MIN_SENS,
-            max = SettingsStore.MAX_SENS,
-            onChange = { sens = it; SettingsStore.setSensitivity(context, it) }
-        )
-        SettingRow(
-            label = "模糊触发角度",
-            valueText = "%.0f°".format(angle),
-            value = angle,
-            min = SettingsStore.MIN_ANGLE,
-            max = SettingsStore.MAX_ANGLE,
-            onChange = { angle = it; SettingsStore.setBlurTriggerAngle(context, it) }
-        )
-    }
-}
-
-/** 单条设置：标签 + 滑块 + 当前值（黑白极简） */
-@Composable
-private fun SettingRow(
-    label: String,
-    valueText: String,
-    value: Float,
-    min: Float,
-    max: Float,
-    onChange: (Float) -> Unit
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp)
-    ) {
-        Text(
-            text = label,
-            color = TextSecondary,
-            fontSize = 11.5.sp,
-            modifier = Modifier.width(78.dp)
-        )
-        Slider(
-            value = value,
-            onValueChange = onChange,
-            valueRange = min..max,
-            modifier = Modifier.weight(1f).height(30.dp),
-            colors = SliderDefaults.colors(
-                thumbColor = AccentB,
-                activeTrackColor = Color.White.copy(alpha = 0.85f),
-                inactiveTrackColor = Color.White.copy(alpha = 0.2f)
-            )
-        )
-        Text(
-            text = valueText,
-            color = TextPrimary,
-            fontSize = 11.sp,
-            textAlign = TextAlign.End,
-            modifier = Modifier.width(50.dp)
-        )
     }
 }
 

@@ -16,6 +16,7 @@ object SettingsStore {
     private const val K_BLUR = "blur_strength"
     private const val K_SENS = "sensitivity"
     private const val K_ANGLE = "blur_trigger_angle"
+    private const val K_HINT = "hint_dismissed"   // 是否已勾选「不再提示」双击进入方法
 
     const val MIN_BLUR = 0f
     const val MAX_BLUR = 0.08f
@@ -41,6 +42,11 @@ object SettingsStore {
 
     fun setBlurTriggerAngle(c: Context, v: Float) =
         prefs(c).edit().putFloat(K_ANGLE, v.coerceIn(MIN_ANGLE, MAX_ANGLE)).apply()
+
+    /** 是否已勾选「不再提示」双击进入方法 */
+    fun hintDismissed(c: Context): Boolean = prefs(c).getBoolean(K_HINT, false)
+    fun setHintDismissed(c: Context, v: Boolean) =
+        prefs(c).edit().putBoolean(K_HINT, v).apply()
 
     /** 一次性取回全部设置，供注入使用 */
     fun snapshot(c: Context): Triple<Float, Float, Float> =

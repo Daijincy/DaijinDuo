@@ -13,6 +13,8 @@ import android.media.ExifInterface
 import android.net.Uri
 import android.os.Bundle
 import android.util.Base64
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.WebChromeClient
@@ -20,9 +22,20 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.Toast
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ComposeView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.daijinduo.github.ui.DoubleTapHintBanner
+import com.daijinduo.github.ui.FoldAdjustOverlay
+import com.daijinduo.github.ui.SoloTheme
 import java.io.ByteArrayOutputStream
 import kotlin.math.max
 
@@ -41,6 +54,10 @@ class WebViewActivity : Activity(), SensorEventListener {
     @Volatile private var sx = 0f
     @Volatile private var sy = 0f
     @Volatile private var sz = 0f
+
+    // v0.3：双击呼出效果调节面板 / 首次进入提示
+    private var showPanel by mutableStateOf(false)
+    private var showHint by mutableStateOf(false)
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,12 +82,28 @@ class WebViewActivity : Activity(), SensorEventListener {
             allowFileAccess = true
             mediaPlaybackRequiresUserGesture = false
         }
+        // v0.3：双击检测（在 WebView 触摸分发前观察，不消费，不干扰拖拽/点击）
+        val doubleTapDetector = GestureDetector(
+            this,
+            object : GestureDetector.SimpleOnGestureListener() {
+                override fun onDoubleTap(e: MotionEvent?): Boolean {
+                    showPanel = true
+                    showHint = false
+                    return true
+                }
+            }
+        )
+        webView.setOnTouchListener { _, event ->
+            doubleTapDetector.onTouchEvent(event)
+            false // 不消费，让 WebView 正常处理滚动/点击/3 次退出
+        }
         // 页面就绪（JS 初始化完成）后回调；同时 onPageFinished 兜底
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 pushSettings()
                 pushImageIfReady()
+                maybeShowHint()
             }
 
             override fun onReceivedError(
@@ -97,6 +130,7 @@ class WebViewActivity : Activity(), SensorEventListener {
                     runOnUiThread {
                         pushSettings()
                         pushImageIfReady()
+                        maybeShowHint()
                     }
                 }
 
@@ -120,10 +154,45 @@ class WebViewActivity : Activity(), SensorEventListener {
             "AndroidBridge"
         )
 
+        // v0.3：效果调节面板 + 首次提示（Compose 覆盖层，全屏、平时不拦截触摸）
+        val overlay = ComposeView(this)
+        overlay.setContent {
+            SoloTheme {
+                Box(Modifier.fillMaxSize()) {
+                    if (showPanel) {
+                        FoldAdjustOverlay(
+                            initialBlur = SettingsStore.blurStrength(this@WebViewActivity),
+                            initialSens = SettingsStore.sensitivity(this@WebViewActivity),
+                            initialAngle = SettingsStore.blurTriggerAngle(this@WebViewActivity),
+                            applySettings = { b, s, a -> applySettingsToWeb(b, s, a) },
+                            onClose = { showPanel = false }
+                        )
+                    } else if (showHint) {
+                        DoubleTapHintBanner(
+                            onDismiss = { dontShowAgain ->
+                                if (dontShowAgain) {
+                                    SettingsStore.setHintDismissed(this@WebViewActivity, true)
+                                }
+                                showHint = false
+                            },
+                            modifier = Modifier.align(Alignment.TopCenter)
+                        )
+                    }
+                }
+            }
+        }
+
         setContentView(
             FrameLayout(this).apply {
                 addView(
                     webView,
+                    FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT
+                    )
+                )
+                addView(
+                    overlay,
                     FrameLayout.LayoutParams(
                         FrameLayout.LayoutParams.MATCH_PARENT,
                         FrameLayout.LayoutParams.MATCH_PARENT
@@ -146,6 +215,24 @@ class WebViewActivity : Activity(), SensorEventListener {
             "window.__setConfig && window.__setConfig({strength:$blur, sensitivity:$sens, fullAngle:$angle})",
             null
         )
+    }
+
+    /** v0.3：面板滑块实时应用——写持久化 + 注入内核 */
+    private fun applySettingsToWeb(blur: Float, sens: Float, angle: Float) {
+        SettingsStore.setBlurStrength(this, blur)
+        SettingsStore.setSensitivity(this, sens)
+        SettingsStore.setBlurTriggerAngle(this, angle)
+        webView.evaluateJavascript(
+            "window.__setConfig && window.__setConfig({strength:$blur, sensitivity:$sens, fullAngle:$angle})",
+            null
+        )
+    }
+
+    /** v0.3：首次进入提示（未勾选「不再提示」时显示） */
+    private fun maybeShowHint() {
+        if (!SettingsStore.hintDismissed(this)) {
+            showHint = true
+        }
     }
 
     /** 页面就绪后传图（幂等，避免重复注入） */
