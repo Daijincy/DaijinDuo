@@ -1,7 +1,6 @@
 package com.daijinduo.github
 
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
@@ -21,6 +20,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
@@ -42,7 +42,7 @@ import kotlin.math.max
  * WebView 全屏效果页：内嵌折叠渲染内核（WebGL2 单页，复刻自 solotilt.com），
  * 不依赖原生 GLES 3.0 管线，兼容性更好。轻点 3 次退出。
  */
-class WebViewActivity : Activity(), SensorEventListener {
+class WebViewActivity : ComponentActivity(), SensorEventListener {
 
     private companion object {
         const val DOUBLE_TAP_WINDOW = 280L   // 双击判定窗口（毫秒）
