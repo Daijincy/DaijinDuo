@@ -319,7 +319,7 @@ class WebViewActivity : Activity(), SensorEventListener {
             layoutParams = LinearLayout.LayoutParams(dp(52), LinearLayout.LayoutParams.WRAP_CONTENT)
         }
         val seek = SeekBar(this).apply {
-            max = 1000
+            this.max = 1000
             progress = pct(initial, min, max)
             progressTintList = ColorStateList.valueOf(Color.WHITE)
             progressBackgroundTintList = ColorStateList.valueOf(Color.argb(51, 255, 255, 255))
