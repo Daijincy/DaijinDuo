@@ -13,7 +13,6 @@ import android.media.ExifInterface
 import android.net.Uri
 import android.os.Bundle
 import android.util.Base64
-import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -45,6 +44,10 @@ import kotlin.math.max
  */
 class WebViewActivity : Activity(), SensorEventListener {
 
+    private companion object {
+        const val DOUBLE_TAP_WINDOW = 280L   // 双击判定窗口（毫秒）
+    }
+
     private lateinit var webView: WebView
 
     private lateinit var sensorManager: SensorManager
@@ -58,6 +61,7 @@ class WebViewActivity : Activity(), SensorEventListener {
     // v0.3：双击呼出效果调节面板 / 首次进入提示
     private var showPanel by mutableStateOf(false)
     private var showHint by mutableStateOf(false)
+    private var lastTapTime = 0L   // 手动双击检测：记录上一次 ACTION_UP 时间戳
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -82,20 +86,19 @@ class WebViewActivity : Activity(), SensorEventListener {
             allowFileAccess = true
             mediaPlaybackRequiresUserGesture = false
         }
-        // v0.3：双击检测（在 WebView 触摸分发前观察，不消费，不干扰拖拽/点击）
-        val doubleTapDetector = GestureDetector(
-            this,
-            object : GestureDetector.SimpleOnGestureListener() {
-                override fun onDoubleTap(e: MotionEvent?): Boolean {
+        // v0.3：双击检测（观察触摸不消费，不干扰 WebView 的滚动/点击/3 次退出）
+        webView.setOnTouchListener { _, event ->
+            if (event.actionMasked == MotionEvent.ACTION_UP) {
+                val now = event.eventTime
+                val gap = now - lastTapTime
+                lastTapTime = now
+                if (gap in 1..DOUBLE_TAP_WINDOW) {   // 两次轻点落在窗口内 = 双击
+                    lastTapTime = 0L
                     showPanel = true
                     showHint = false
-                    return true
                 }
             }
-        )
-        webView.setOnTouchListener { _, event ->
-            doubleTapDetector.onTouchEvent(event)
-            false // 不消费，让 WebView 正常处理滚动/点击/3 次退出
+            false
         }
         // 页面就绪（JS 初始化完成）后回调；同时 onPageFinished 兜底
         webView.webViewClient = object : WebViewClient() {
