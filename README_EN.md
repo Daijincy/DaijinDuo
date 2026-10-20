@@ -39,12 +39,11 @@ app/src/main/
 ├── assets/daijinduo/index.html     # WebView render core (WebGL2 fold shaders, line-by-line port)
 ├── java/com/daijinduo/github/
 │   ├── MainActivity.kt             # Two-page skeleton (Duo/Show) + Liquid Glass bar
-│   ├── WebViewActivity.kt          # Full-screen page: HTML injection + JS bridge + native accelerometer + double-tap tuning
+│   ├── WebViewActivity.kt          # Full-screen page: HTML injection + JS bridge + native accelerometer + double-tap tuning (native View overlay)
 │   ├── SettingsStore.kt            # Effect settings persistence (SharedPreferences, incl. "don't show again")
 │   ├── ui/
 │   │   ├── Theme.kt                # Noto Serif CJK · retro-minimal palette
 │   │   ├── HomeScreen.kt           # Duo home (logo + entry buttons)
-│   │   ├── FoldAdjustOverlay.kt    # Fullscreen double-tap tuning panel + first-run hint banner
 │   │   ├── GalleryScreen.kt        # Gallery permission + image grid
 │   │   ├── ShowPage.kt             # Show page (coming soon)
 │   │   └── LiquidGlassBar.kt       # Liquid Glass floating bar (Haze)

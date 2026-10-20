@@ -40,12 +40,11 @@ app/src/main/
 ├── assets/daijinduo/index.html     # WebView 渲染内核（WebGL2 折叠 shader 逐行移植）
 ├── java/com/daijinduo/github/
 │   ├── MainActivity.kt             # 双页骨架（Duo/Show）+ 液态玻璃底栏
-│   ├── WebViewActivity.kt          # 全屏效果页：HTML 注入 + JS 桥 + 原生加速度计 + 双击呼出调节
+│   ├── WebViewActivity.kt          # 全屏效果页：HTML 注入 + JS 桥 + 原生加速度计 + 双击呼出调节（原生 View 覆盖层）
 │   ├── SettingsStore.kt            # 效果设置持久化（SharedPreferences，含「不再提示」）
 │   ├── ui/
 │   │   ├── Theme.kt                # 思源宋体 · 复古简约色板
 │   │   ├── HomeScreen.kt           # Duo 主页（Logo + 双入口）
-│   │   ├── FoldAdjustOverlay.kt    # 全屏双击呼出的效果调节面板 + 首次进入提示横幅
 │   │   ├── GalleryScreen.kt        # 相册权限 + 图片网格
 │   │   ├── ShowPage.kt             # Show 页（敬请期待）
 │   │   └── LiquidGlassBar.kt       # 液态玻璃悬浮底栏（Haze）

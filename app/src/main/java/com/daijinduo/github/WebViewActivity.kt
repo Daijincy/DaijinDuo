@@ -1,9 +1,14 @@
 package com.daijinduo.github
 
 import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.graphics.Matrix
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -12,44 +17,47 @@ import android.media.ExifInterface
 import android.net.Uri
 import android.os.Bundle
 import android.util.Base64
+import android.view.Gravity
 import android.view.MotionEvent
+import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.CheckBox
 import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.SeekBar
+import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.ComponentActivity
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.ComposeView
+import androidx.core.content.res.ResourcesCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import com.daijinduo.github.ui.DoubleTapHintBanner
-import com.daijinduo.github.ui.FoldAdjustOverlay
-import com.daijinduo.github.ui.SoloTheme
 import java.io.ByteArrayOutputStream
 import kotlin.math.max
 
 /**
- * WebView 全屏效果页：内嵌折叠渲染内核（WebGL2 单页，复刻自 solotilt.com），
- * 不依赖原生 GLES 3.0 管线，兼容性更好。轻点 3 次退出。
+ * WebView 全屏效果页：内嵌折叠渲染内核（WebGL2 单页，复刻自 solotilt.com）。
+ *
+ * v0.3 修复：覆盖层改用纯 Android View（原生 SeekBar / TextView），不依赖 Compose
+ * 生命周期，回归 v0.1/v0.2 的纯 WebView 管线，彻底消除「选图进入全屏闪退」。
+ * 轻点 3 次退出；双击呼出效果调节面板；首次进入提示双击进入方法（可不再提示）。
  */
-class WebViewActivity : ComponentActivity(), SensorEventListener {
+class WebViewActivity : Activity(), SensorEventListener {
 
     private companion object {
         const val DOUBLE_TAP_WINDOW = 280L   // 双击判定窗口（毫秒）
+
+        // SeekBar 0..1000 与浮点范围互转
+        fun pct(v: Float, min: Float, max: Float): Int =
+            ((v - min) / (max - min) * 1000).toInt().coerceIn(0, 1000)
+        fun inv(p: Int, min: Float, max: Float): Float =
+            min + (p / 1000f) * (max - min)
     }
 
     private lateinit var webView: WebView
-
     private lateinit var sensorManager: SensorManager
     private var accelSensor: Sensor? = null
 
@@ -58,10 +66,29 @@ class WebViewActivity : ComponentActivity(), SensorEventListener {
     @Volatile private var sy = 0f
     @Volatile private var sz = 0f
 
-    // v0.3：双击呼出效果调节面板 / 首次进入提示
-    private var showPanel by mutableStateOf(false)
-    private var showHint by mutableStateOf(false)
-    private var lastTapTime = 0L   // 手动双击检测：记录上一次 ACTION_UP 时间戳
+    // v0.3：双击呼出调节面板 / 首次进入提示（纯 View 覆盖层）
+    private var lastTapTime = 0L
+    private var panelVisible = false
+    private lateinit var overlayRoot: FrameLayout
+    private lateinit var hintBanner: View
+    private var imagePushed = false
+
+    private val serifReg: Typeface by lazy {
+        ResourcesCompat.getFont(this, R.font.notoserifsc_regular) ?: Typeface.SERIF
+    }
+    private val serifBold: Typeface by lazy {
+        ResourcesCompat.getFont(this, R.font.notoserifsc_bold) ?: Typeface.SERIF
+    }
+
+    private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
+
+    private fun text(label: String, sp: Float, color: Int, bold: Boolean = false): TextView =
+        TextView(this).apply {
+            this.text = label
+            textSize = sp
+            setTextColor(color)
+            typeface = if (bold) serifBold else serifReg
+        }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -86,16 +113,15 @@ class WebViewActivity : ComponentActivity(), SensorEventListener {
             allowFileAccess = true
             mediaPlaybackRequiresUserGesture = false
         }
-        // v0.3：双击检测（观察触摸不消费，不干扰 WebView 的滚动/点击/3 次退出）
+        // v0.3：双击检测（观察触摸不消费，不干扰 WebView 滚动/点击/3 次退出）
         webView.setOnTouchListener { _, event ->
             if (event.actionMasked == MotionEvent.ACTION_UP) {
                 val now = event.eventTime
                 val gap = now - lastTapTime
                 lastTapTime = now
-                if (gap in 1..DOUBLE_TAP_WINDOW) {   // 两次轻点落在窗口内 = 双击
+                if (gap in 1..DOUBLE_TAP_WINDOW) {
                     lastTapTime = 0L
-                    showPanel = true
-                    showHint = false
+                    showPanel()
                 }
             }
             false
@@ -157,33 +183,9 @@ class WebViewActivity : ComponentActivity(), SensorEventListener {
             "AndroidBridge"
         )
 
-        // v0.3：效果调节面板 + 首次提示（Compose 覆盖层，全屏、平时不拦截触摸）
-        val overlay = ComposeView(this)
-        overlay.setContent {
-            SoloTheme {
-                Box(Modifier.fillMaxSize()) {
-                    if (showPanel) {
-                        FoldAdjustOverlay(
-                            initialBlur = SettingsStore.blurStrength(this@WebViewActivity),
-                            initialSens = SettingsStore.sensitivity(this@WebViewActivity),
-                            initialAngle = SettingsStore.blurTriggerAngle(this@WebViewActivity),
-                            applySettings = { b, s, a -> applySettingsToWeb(b, s, a) },
-                            onClose = { showPanel = false }
-                        )
-                    } else if (showHint) {
-                        DoubleTapHintBanner(
-                            onDismiss = { dontShowAgain ->
-                                if (dontShowAgain) {
-                                    SettingsStore.setHintDismissed(this@WebViewActivity, true)
-                                }
-                                showHint = false
-                            },
-                            modifier = Modifier.align(Alignment.TopCenter)
-                        )
-                    }
-                }
-            }
-        }
+        // 覆盖层：调节面板 + 首次提示（纯 View，置于 WebView 之上，默认隐藏不拦截触摸）
+        overlayRoot = buildPanel()
+        hintBanner = buildHintBanner()
 
         setContentView(
             FrameLayout(this).apply {
@@ -195,10 +197,18 @@ class WebViewActivity : ComponentActivity(), SensorEventListener {
                     )
                 )
                 addView(
-                    overlay,
+                    overlayRoot,
                     FrameLayout.LayoutParams(
                         FrameLayout.LayoutParams.MATCH_PARENT,
                         FrameLayout.LayoutParams.MATCH_PARENT
+                    )
+                )
+                addView(
+                    hintBanner,
+                    FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.WRAP_CONTENT,
+                        Gravity.TOP
                     )
                 )
             }
@@ -209,7 +219,207 @@ class WebViewActivity : ComponentActivity(), SensorEventListener {
         webView.loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
     }
 
-    private var imagePushed = false
+    // ==================== 效果调节面板（纯 View）====================
+
+    private fun buildPanel(): FrameLayout {
+        // 全屏遮罩：半透明黑，点击空白关闭
+        val overlay = FrameLayout(this).apply {
+            setBackgroundColor(Color.argb(158, 0, 0, 0))
+            setOnClickListener { hidePanel() }
+            visibility = View.GONE
+            isClickable = true
+        }
+
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            // 黑色细框圆角卡片
+            background = GradientDrawable().apply {
+                cornerRadius = dp(18).toFloat()
+                setColor(0xFF111111.toInt())
+                setStroke(dp(1), Color.argb(56, 255, 255, 255)) // 0.22 alpha 白边
+            }
+        }
+        val panelPadding = dp(18)
+        panel.setPadding(panelPadding, panelPadding, panelPadding, panelPadding)
+
+        // 标题行：效果调节 + ✕
+        val titleRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val title = text("效果调节", 13f, Color.WHITE, bold = true).apply {
+            setTypeface(typeface, Typeface.BOLD)
+            letterSpacing = 0.12f
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        val closeBtn = text("✕", 14f, Color.parseColor("#9E9E9E")).apply {
+            setOnClickListener { hidePanel() }
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+        }
+        titleRow.addView(title)
+        titleRow.addView(closeBtn)
+
+        panel.addView(titleRow)
+        panel.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(10)) })
+
+        // 三条设置：标签 + SeekBar + 当前值
+        addSettingRow(panel,
+            label = "模糊强度",
+            min = SettingsStore.MIN_BLUR, max = SettingsStore.MAX_BLUR,
+            initial = SettingsStore.blurStrength(this),
+            fmt = { "%.3f".format(it) },
+            apply = { b -> applySettingsToWeb(b, SettingsStore.sensitivity(this), SettingsStore.blurTriggerAngle(this)) })
+        addSettingRow(panel,
+            label = "陀螺仪灵敏度",
+            min = SettingsStore.MIN_SENS, max = SettingsStore.MAX_SENS,
+            initial = SettingsStore.sensitivity(this),
+            fmt = { "%.1f×".format(it) },
+            apply = { s -> applySettingsToWeb(SettingsStore.blurStrength(this), s, SettingsStore.blurTriggerAngle(this)) })
+        addSettingRow(panel,
+            label = "模糊触发角度",
+            min = SettingsStore.MIN_ANGLE, max = SettingsStore.MAX_ANGLE,
+            initial = SettingsStore.blurTriggerAngle(this),
+            fmt = { "%.0f°".format(it) },
+            apply = { a -> applySettingsToWeb(SettingsStore.blurStrength(this), SettingsStore.sensitivity(this), a) })
+
+        val margin = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            Gravity.CENTER
+        )
+        margin.leftMargin = dp(26)
+        margin.rightMargin = dp(26)
+        overlay.addView(panel, margin)
+        return overlay
+    }
+
+    private fun addSettingRow(
+        panel: LinearLayout,
+        label: String,
+        min: Float,
+        max: Float,
+        initial: Float,
+        fmt: (Float) -> String,
+        apply: (Float) -> Unit
+    ) {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val rowPad = dp(3)
+        row.setPadding(0, rowPad, 0, rowPad)
+
+        val lb = text(label, 12f, Color.parseColor("#9E9E9E")).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(84), LinearLayout.LayoutParams.WRAP_CONTENT)
+        }
+        val value = text(fmt(initial), 11.5f, Color.WHITE).apply {
+            gravity = Gravity.END
+            layoutParams = LinearLayout.LayoutParams(dp(52), LinearLayout.LayoutParams.WRAP_CONTENT)
+        }
+        val seek = SeekBar(this).apply {
+            max = 1000
+            progress = pct(initial, min, max)
+            progressTintList = ColorStateList.valueOf(Color.WHITE)
+            progressBackgroundTintList = ColorStateList.valueOf(Color.argb(51, 255, 255, 255))
+            thumbTintList = ColorStateList.valueOf(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(
+                0, dp(34), 1f
+            )
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
+                    val v = inv(p, min, max)
+                    value.text = fmt(v)
+                    if (fromUser) apply(v)
+                }
+                override fun onStartTrackingTouch(s: SeekBar?) {}
+                override fun onStopTrackingTouch(s: SeekBar?) {}
+            })
+        }
+
+        row.addView(lb)
+        row.addView(seek)
+        row.addView(value)
+        panel.addView(row)
+    }
+
+    private fun showPanel() {
+        panelVisible = true
+        overlayRoot.visibility = View.VISIBLE
+        hintBanner.visibility = View.GONE
+    }
+
+    private fun hidePanel() {
+        panelVisible = false
+        overlayRoot.visibility = View.GONE
+    }
+
+    // ==================== 首次进入提示横幅（纯 View）====================
+
+    private fun buildHintBanner(): View {
+        val holder = FrameLayout(this)
+        holder.visibility = View.GONE
+
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                cornerRadius = dp(14).toFloat()
+                setColor(0xE6181818.toInt())
+                setStroke(dp(1), Color.argb(46, 255, 255, 255)) // 0.18 alpha 白边
+            }
+        }
+        val pad = dp(14)
+        card.setPadding(pad, dp(12), pad, dp(12))
+
+        card.addView(text("双击屏幕呼出效果调节", 14f, Color.WHITE, bold = true))
+        card.addView(text("模糊强度 · 陀螺仪灵敏度 · 模糊触发角度", 11f, Color.parseColor("#9E9E9E")).apply {
+            letterSpacing = 0.02f
+            setPadding(0, dp(4), 0, 0)
+        })
+
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(8), 0, 0)
+        }
+        val cb = CheckBox(this).apply {
+            text = "不再提示"
+            setTextColor(Color.parseColor("#9E9E9E"))
+            textSize = 12f
+            typeface = serifReg
+            buttonTintList = ColorStateList.valueOf(Color.WHITE)
+        }
+        val ok = text("知道了", 12.5f, Color.WHITE, bold = true).apply {
+            setOnClickListener {
+                SettingsStore.setHintDismissed(this@WebViewActivity, cb.isChecked)
+                hintBanner.visibility = View.GONE
+            }
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+        }
+        row.addView(cb, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        row.addView(ok)
+        card.addView(row)
+
+        val margin = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            Gravity.TOP
+        )
+        margin.leftMargin = dp(18)
+        margin.rightMargin = dp(18)
+        margin.topMargin = dp(20)
+        holder.addView(card, margin)
+        return holder
+    }
+
+    private fun maybeShowHint() {
+        if (!SettingsStore.hintDismissed(this) && !panelVisible) {
+            hintBanner.visibility = View.VISIBLE
+        }
+    }
+
+    // ==================== 设置注入与图片 ====================
 
     /** 注入用户设置到渲染内核（模糊强度 / 灵敏度 / 触发角度） */
     private fun pushSettings() {
@@ -229,13 +439,6 @@ class WebViewActivity : ComponentActivity(), SensorEventListener {
             "window.__setConfig && window.__setConfig({strength:$blur, sensitivity:$sens, fullAngle:$angle})",
             null
         )
-    }
-
-    /** v0.3：首次进入提示（未勾选「不再提示」时显示） */
-    private fun maybeShowHint() {
-        if (!SettingsStore.hintDismissed(this)) {
-            showHint = true
-        }
     }
 
     /** 页面就绪后传图（幂等，避免重复注入） */
@@ -313,6 +516,10 @@ class WebViewActivity : ComponentActivity(), SensorEventListener {
     }
 
     override fun onBackPressed() {
+        if (panelVisible) {
+            hidePanel()
+            return
+        }
         super.onBackPressed()
         finish()
     }
