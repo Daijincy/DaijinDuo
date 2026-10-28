@@ -360,11 +360,11 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
         <div class="spec"><dt>文件大小</dt><dd>11 MB</dd></div>
       </dl>
       <div class="dl-actions">
-        <a class="btn btn-primary" href="https://aka.doubaocdn.com/s/LuN0deASW4" download="DaijinDuo-v0.3.apk">
+        <a class="btn btn-primary" href="https://gh-proxy.com/https://github.com/Daijincy/DaijinDuo/releases/download/v0.3/DaijinDuo-v0.3.apk" download="DaijinDuo-v0.3.apk">
           <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
           下载 DaijinDuo-v0.3.apk
         </a>
-        <span class="note">国内 CDN 加速直链 · 备用：<a href="https://github.com/Daijincy/DaijinDuo/releases/download/v0.3/DaijinDuo-v0.3.apk" target="_blank" rel="noopener">GitHub Release</a></span>
+        <span class="note">GH proxy 加速直链 · 备用：<a href="https://github.com/Daijincy/DaijinDuo/releases/download/v0.3/DaijinDuo-v0.3.apk" target="_blank" rel="noopener">GitHub Release</a></span>
       </div>
     </div>
 
@@ -436,7 +436,7 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
   var EXTERNAL = {
     model: '',    // 例: 'https://your-cdn.com/apple-iphone-17-pro.glb'
     screen: '',   // 例: 'https://your-cdn.com/screen.webp'（锁屏静态图）
-    video: 'https://aka.doubaocdn.com/s/qYbgz84Ey7'     // 演示视频（火山加速源）
+    video: ''      // 留空：走站内 assets/effect.mp4|webm（同源稳定，自动按解码能力选择，不依赖外部短链）
   };
   function resolveAsset(key, inline){
     try {
@@ -707,15 +707,13 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
     setLoadState('loading');
     setLoadPct(0);
     window.__dbg = 'fetching';
-    /* Fixed accelerated single-stream source: one CDN that answers
-       `Access-Control-Allow-Origin: *` + Range 206 — a Volcengine byteimg
-       signed URL (fast in CN, verified CORS *) that
-       .github/workflows/refresh-glb.yml renews every 5 days.
-       (aka.doubaocdn.com short link itself returns 403 with an Origin header,
-       so it can't be a browser fetch source.) No multi-source switching: the
-       model loads from this one source; if it ever fails (e.g. expiry before
-       renewal), fall back to the in-repo copy so the page never black-screens. */
-    var GLB_ACCEL = 'https://p3-flow-sign.byteimg.com/tos-cn-i-ik7evvg4ik/rc/pc/super_tool/27cadb32edbe4209bcb6c4e0bad5e5ca.glb~tplv-a9rns2rl98-image.image?lk3s=8e244e95&rcl=202610181704434A3E3DD5F0351C4E8704&rrcfp=935dee89&x-expires=1792919127&x-signature=wh0vtNqtdJwqblpyL4tW8kAdRVw%3D';
+    /* Fixed accelerated source: gh-proxy.com reverse-proxies the GitHub
+       Release asset (web-assets tag), which answers
+       `Access-Control-Allow-Origin: *` + Range 206. The asset lives in a
+       permanent GitHub Release, so this URL never expires (unlike the old
+       Volcengine signed link that expired after days).
+       Fall back to the in-repo copy so the page never black-screens. */
+    var GLB_ACCEL = 'https://gh-proxy.com/https://github.com/Daijincy/DaijinDuo/releases/download/web-assets/apple-iphone-17-pro.glb';
     var SOURCES = [GLB_ACCEL, MODEL_URL];
     var safetyTimer = setTimeout(function(){
       if(!window.__sceneReady) singleFallback(0, 2);
