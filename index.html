@@ -92,11 +92,12 @@ h1 em{font-style:normal;background:linear-gradient(120deg,#6db6ff,#cfe8ff);-webk
 .phone3d-load-btn{display:inline-flex;align-items:center;gap:8px;padding:11px 20px;border-radius:14px;border:1px solid var(--line-2);
   background:rgba(255,255,255,.04);color:var(--ink);font-family:var(--sans);font-size:13.5px;letter-spacing:1px;cursor:pointer;transition:.25s}
 .phone3d-load-btn:hover{border-color:var(--accent);color:var(--accent-2);background:var(--accent-soft);transform:translateY(-1px)}
-.phone3d-load-track{width:128px;height:2px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden;display:none}
-.phone3d-load-track i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .18s ease}
-.phone3d-load-pct{font-size:11.5px;color:var(--ink-dim);font-family:var(--mono);letter-spacing:1px;min-height:1em;display:none}
+.phone3d-load-track{width:260px;height:4px;border-radius:3px;background:rgba(255,255,255,.18);overflow:hidden;display:none}
+.phone3d-load-track i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ffffff,rgba(255,255,255,.65));transition:width .18s ease}
+.phone3d-load-label{font-size:12px;color:var(--ink-dim);font-family:var(--mono);letter-spacing:2px;display:none}
+.phone3d-load-pct{font-size:13px;color:var(--ink);font-family:var(--mono);letter-spacing:2px;min-height:1em;display:none}
 .phone3d-load.is-loading .phone3d-load-btn{display:none}
-.phone3d-load.is-loading .phone3d-load-track,.phone3d-load.is-loading .phone3d-load-pct{display:block}
+.phone3d-load.is-loading .phone3d-load-label,.phone3d-load.is-loading .phone3d-load-track,.phone3d-load.is-loading .phone3d-load-pct{display:block}
 .phone3d-load.is-error .phone3d-load-track i{background:linear-gradient(90deg,#ff5b5b,#ff8f8f)}
 .phone3d.no-webgl .phone3d-load{display:none}
 /* 点击屏幕后的演示视频弹层 */
@@ -251,8 +252,9 @@ footer{padding:44px 0 40px;border-top:1px solid var(--line)}
         <canvas id="phone3d-canvas" aria-label="DaijinDuo 效果演示 · 3D 模型"></canvas>
         <div class="phone3d-load" id="phone3d-load" aria-hidden="true">
           <button type="button" class="phone3d-load-btn" id="phone3d-load-btn">加载完整资源</button>
+          <div class="phone3d-load-label" id="phone3d-load-label">正在加载模型…</div>
           <div class="phone3d-load-track"><i id="phone3d-load-fill"></i></div>
-          <span class="phone3d-load-pct" id="phone3d-load-pct"></span>
+          <span class="phone3d-load-pct" id="phone3d-load-pct">0%</span>
         </div>
         <span class="phone3d-hint" aria-hidden="true">DRAG · 360° · 点击屏幕播放</span>
       </div>
